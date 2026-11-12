@@ -5,8 +5,8 @@
 **An open-source AI meeting assistant for Zoom, Google Meet and Teams. It listens to the call and writes what to say back on a private overlay that screen sharing does not show. Runs on the Claude or ChatGPT subscription you already have.**
 
 [![Tests](https://github.com/tanzeeldevAi/ai-meeting-assistant-copilot/actions/workflows/tests.yml/badge.svg)](https://github.com/tanzeeldevAi/ai-meeting-assistant-copilot/actions/workflows/tests.yml)
-[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](#install-on-windows)
-[![macOS](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)](#install-on-a-mac)
+[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](#install-in-one-command)
+[![macOS](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)](#install-in-one-command)
 [![Claude](https://img.shields.io/badge/Claude-subscription-D97757)](#which-ai-writes-the-answers)
 [![ChatGPT](https://img.shields.io/badge/ChatGPT-subscription-10A37F?logo=openai&logoColor=white)](#which-ai-writes-the-answers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -66,7 +66,7 @@ such as Cluely, built for client calls, sales calls and consultations.
   answers can use: pitch, prices, past results, your CV.
 - **Your own script.** Write the exact lines you want to say. When a question is
   covered, you get your line back, almost word for word.
-- **"Ask Claude what else it needs."** It asks the 4 to 6 questions whose answers
+- **"Ask the AI what else it needs."** It asks the 4 to 6 questions whose answers
   improve the live answers most.
 - **Better spelling of your words.** Names and jargon from the brief are taught to the
   speech recogniser, so "idempotency" does not come out as "eye-dampitancy".
@@ -152,94 +152,68 @@ otherwise ChatGPT if the Codex CLI is signed in.
 
 ---
 
-## Before you start
+## Install in one command
 
-You need three free programs. If you already have them, skip ahead.
+Copy one line, paste it, press Enter. It downloads everything the app needs,
+including Node.js and Python if your computer does not have them, without asking
+for an administrator password. It takes 5 to 10 minutes the first time, then opens
+the app.
 
-| Program | Why | Get it |
-|---|---|---|
-| **Node.js** (version 18 or newer, the "LTS" one) | Runs the app | [nodejs.org](https://nodejs.org) |
-| **Python 3.12** (3.10 to 3.13 work) | Listens and turns speech into text | [python.org](https://www.python.org/downloads/) |
-| **Git** (optional) | Downloads this project | [git-scm.com](https://git-scm.com/downloads) |
+**Windows 10 or 11:** open the Start menu, type **PowerShell**, press Enter, and paste:
 
-On Windows, tick **"Add python.exe to PATH"** in the Python installer.
-
----
-
-## Install on Windows
-
-**Step 1. Download the project.** Either click the green **Code** button above and
-choose **Download ZIP**, then unzip it, or run:
-
-```bash
-git clone https://github.com/tanzeeldevAi/ai-meeting-assistant-copilot.git
+```powershell
+irm https://raw.githubusercontent.com/tanzeeldevAi/ai-meeting-assistant-copilot/main/install.ps1 | iex
 ```
 
-**Step 2. Run the setup.** Open the folder and double-click **`SETUP.bat`**. It
-installs everything into the project folder and downloads the speech model (about
-75 MB). It takes 5 to 10 minutes the first time and tells you if anything is missing.
+**Mac (macOS 13 or newer):** open **Terminal** (press Cmd + Space, type Terminal), and paste:
 
-**Step 3. Sign in to the AI.** Pick one, see [Sign in](#sign-in-to-the-ai-once).
+```bash
+curl -fsSL https://raw.githubusercontent.com/tanzeeldevAi/ai-meeting-assistant-copilot/main/install.sh | bash
+```
 
-**Step 4. Start it.** Double-click **`START.bat`**. Two windows open: the
-**dashboard**, where you prepare and review, and the **overlay**, the panel you read
-from during the call.
+Afterwards, open **Meeting Copilot** from the desktop or Start menu on Windows, or
+from Launchpad or Spotlight on a Mac. Running the same line again updates the app
+and keeps your meetings and settings.
 
-## Install on a Mac
+### Connect your AI
 
-**Step 1. Download the project**, the same way as above.
+When the app opens it looks for Claude and ChatGPT on your computer by itself:
 
-**Step 2. Run the setup.** Double-click **`SETUP-MAC.command`**. If macOS says it
-cannot be opened, right-click it, choose **Open**, then **Open** again. It installs
-everything into the project folder, builds the small helper that hears your Mac's
-sound, and downloads the speech model. If it asks for Apple's developer tools, click
-**Install**, wait for it to finish, and run the setup again.
+- **Already signed in to one?** It connects to it straight away. Nothing to do.
+- **Not signed in yet?** It shows **Sign in with Claude** and **Sign in with
+  ChatGPT**. Press the one you pay for, finish signing in in the browser window that
+  opens, and the app connects as soon as you are done.
 
-**Step 3. Sign in to the AI.** See below.
+If neither is installed, the installer adds Claude's command-line tool for you. To
+use ChatGPT instead, install its tool once in the same window you used above, then
+press **Sign in with ChatGPT** in the app:
 
-**Step 4. Start it.** Double-click **`START.command`**. The first time, macOS asks for
-two permissions. Allow both for **Electron**:
+```bash
+npm install -g @openai/codex
+```
+
+### The first time on a Mac
+
+macOS asks for two permissions. Allow both for **Electron**:
 
 - **Microphone**, to hear you
 - **Screen & System Audio Recording**, to hear the other person (no video is recorded)
 
-If macOS offers **Quit & Reopen** after you allow it, quit, then double-click
-`START.command` again.
+If macOS offers **Quit & Reopen** after you allow it, quit, then open Meeting Copilot
+again.
 
----
+<details>
+<summary><b>Prefer to install by hand?</b></summary>
 
-## Sign in to the AI, once
+You need [Node.js](https://nodejs.org) 18 or newer and [Python 3.12](https://www.python.org/downloads/)
+(on Windows, tick **"Add python.exe to PATH"**). Download this project with the green
+**Code** button, unzip it, then double-click **`SETUP.bat`** (Windows) or
+**`SETUP-MAC.command`** (Mac). Start it with **`START.bat`** or **`START.command`**.
 
-### Claude (recommended for live answers)
-
-1. Install Claude Code, if you do not have it:
-   ```bash
-   npm install -g @anthropic-ai/claude-code
-   ```
-2. Open a terminal, type `claude` and press Enter.
-3. Inside it, type **`/login`** and finish the sign-in in your browser.
-
-Only `/login` stores the sign-in. Opening `claude` alone can show a "Welcome back"
-screen without a usable login.
-
-### ChatGPT
-
-1. Install the Codex CLI:
-   ```bash
-   npm install -g @openai/codex
-   ```
-2. Run:
-   ```bash
-   codex login
-   ```
-   and choose **Sign in with ChatGPT**.
-3. In the dashboard, go to **Settings → Main brain** and pick **ChatGPT**.
-
-### Check that it worked
-
-Double-click **`CHECK.bat`** (Windows) or **`CHECK.command`** (Mac). It tells you
-which AI is signed in, sends two real test questions and prints how fast each
-answer came back.
+To sign in by hand: `claude auth login` for Claude, or `codex login` for ChatGPT.
+**`CHECK.bat`** or **`CHECK.command`** tells you which AI is signed in and how fast it
+answers.
+</details>
 
 ---
 
@@ -259,7 +233,7 @@ NOTE - DON'T SAY
 My floor is 1,000. Only offer it if they push twice.
 ```
 
-Then press **Ask Claude what else it needs** and answer its questions. That minute
+Then press **Ask the AI what else it needs** and answer its questions. That minute
 improves the live answers more than anything else.
 
 Everything you type also helps the speech recognition: words from your brief, like

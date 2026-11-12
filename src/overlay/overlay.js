@@ -60,7 +60,7 @@ on('state', (s) => {
   if (s.authError) {
     showBanner('Claude is not signed in. In a terminal run  claude , type  /login , then restart.');
   } else if (s.mock) {
-    showBanner('Offline demo mode - answers are canned, not from Claude.', 'warn');
+    showBanner('Offline demo mode - answers are canned, not from the AI.', 'warn');
   }
   if (s.listening) setStatus('listening', 'live');
   else setStatus('idle', 'idle');
@@ -207,7 +207,7 @@ on('answer:error', (e) => {
   suggests.classList.remove('loading');
   answer.classList.remove('thinking');
   answerMeta.textContent = 'failed';
-  showBanner(e.message || 'Claude request failed.');
+  showBanner(e.message || 'The AI request failed.');
 });
 
 on('focus-ask', () => { askInput.focus(); askInput.select(); });
@@ -283,5 +283,5 @@ window.copilot.state().then((s) => {
   if (s.listening) setStatus('listening', 'live');
   else setStatus('idle - start a meeting from the dashboard', 'idle');
   if (s.authError) showBanner('Claude is not signed in. In a terminal run  claude , type  /login , then restart.');
-  else if (s.mock) showBanner('Offline demo mode - answers are canned, not from Claude.', 'warn');
+  else if (s.mock) showBanner('Offline demo mode - answers are canned, not from the AI.', 'warn');
 });

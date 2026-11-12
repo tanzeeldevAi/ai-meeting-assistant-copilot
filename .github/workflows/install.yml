@@ -1,0 +1,68 @@
+name: One-command install
+
+# Runs the installers the README tells people to paste, on a clean macOS and
+# Windows machine, from this commit rather than from main. Node and Python are
+# forced to the portable downloads, so the path a new user without either one
+# takes is the path that gets tested. The AI sign-in is skipped: it needs a
+# person and a browser.
+on:
+  push:
+  pull_request:
+
+jobs:
+  macos:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install, as a user would
+        env:
+          MC_SOURCE: ${{ github.workspace }}
+          MC_DIR: ${{ runner.temp }}/MeetingCopilot
+          MC_APPS_DIR: ${{ runner.temp }}/Applications
+          MC_FORCE_PORTABLE: "1"
+          MC_SKIP_AI: "1"
+          MC_NO_LAUNCH: "1"
+        run: cat install.sh | bash
+      - name: Everything is in place
+        env:
+          D: ${{ runner.temp }}/MeetingCopilot
+        run: |
+          set -e
+          test -x "$D/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+          "$D/.venv/bin/python3" -c "import sounddevice, scipy, faster_whisper, webrtcvad, websockets; print('speech packages ok')"
+          "$D/audio/mac/syscap" --devices
+          test -x "${{ runner.temp }}/Applications/Meeting Copilot.app/Contents/MacOS/MeetingCopilot"
+          cd "$D" && "$D/.runtime/node/bin/node" -e "const {resolvePython}=require('./src/main/bridge');const p=resolvePython();if(!p||!/\.venv/.test(p.exe))process.exit(1);console.log('app finds',p.exe)"
+      - name: The ready-made audio helper runs on Intel
+        run: |
+          curl -fsSL -o syscap https://github.com/${{ github.repository }}/releases/latest/download/syscap-macos-universal
+          chmod +x syscap && lipo -info syscap && ./syscap --devices
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install, as a user would
+        shell: powershell
+        env:
+          MC_SOURCE: ${{ github.workspace }}
+          MC_DIR: ${{ runner.temp }}\MeetingCopilot
+          MC_FORCE_PORTABLE: "1"
+          MC_SKIP_AI: "1"
+          MC_NO_LAUNCH: "1"
+        # The same thing the README's one-liner does, but from this commit.
+        run: Get-Content -Raw install.ps1 | Invoke-Expression
+      - name: Everything is in place
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $D = Join-Path $env:RUNNER_TEMP 'MeetingCopilot'
+          if (-not (Test-Path "$D\node_modules\electron\dist\electron.exe")) { throw 'electron.exe missing' }
+          & "$D\.venv\Scripts\python.exe" -c "import pyaudiowpatch, scipy, faster_whisper, webrtcvad, websockets; print('speech packages ok')"
+          if ($LASTEXITCODE -ne 0) { throw 'speech packages' }
+          $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Meeting Copilot.lnk'
+          if (-not (Test-Path $lnk)) { throw 'desktop shortcut missing' }
+          Push-Location $D
+          & "$D\.runtime\node\node.exe" -e "const {resolvePython}=require('./src/main/bridge');const p=resolvePython();if(!p||!/\.venv/.test(p.exe))process.exit(1);console.log('app finds',p.exe)"
+          if ($LASTEXITCODE -ne 0) { throw 'app does not find the Python the installer made' }
+          Pop-Location

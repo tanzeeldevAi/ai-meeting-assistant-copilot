@@ -105,10 +105,10 @@ $('clarifyBtn').onclick = async () => {
   const btn = $('clarifyBtn');
   btn.disabled = true; btn.textContent = 'Thinking…';
   const r = await api.clarify(current.brief);
-  btn.disabled = false; btn.textContent = 'Ask Claude what else it needs';
+  btn.disabled = false; btn.textContent = 'Ask the AI what else it needs';
 
-  if (!r || !r.ok) { showErr(r?.error || 'Could not reach Claude.'); return; }
-  if (!r.questions.length) { showErr('Claude says the brief already covers what it needs.'); return; }
+  if (!r || !r.ok) { showErr(r?.error || 'Could not reach the AI.'); return; }
+  if (!r.questions.length) { showErr('The AI says the brief already covers what it needs.'); return; }
 
   const list = $('prepList');
   list.innerHTML = '';
@@ -536,10 +536,57 @@ api.on('devices', (m) => { $('devices').textContent = m.loopback ? `hearing: ${m
 api.on('summary', (s) => renderSummary(s));
 api.on('note', () => current && renderNotes(current.notes || []));
 
+// ---------------- AI connection ----------------
+
+const AI_NAMES = { claude: 'Claude', codex: 'ChatGPT', openai: 'OpenAI API' };
+let aiWatch = null;
+
+/** Show the connect card until an AI is signed in, and name the one in use. */
+async function refreshAI() {
+  let d;
+  try { d = await api.aiStatus(); } catch { return null; }
+  $('connect').classList.toggle('hidden', d.ready);
+  $('aiUsing').innerHTML = d.ready ? `AI: <b>${AI_NAMES[d.use] || d.use}</b>` : 'AI: not connected';
+  // Name the buttons after what is actually on this computer.
+  $('signClaude').textContent = d.claude.installed ? 'Sign in with Claude' : 'Claude not installed';
+  $('signClaude').disabled = !d.claude.installed;
+  $('signChatgpt').textContent = d.chatgpt.installed ? 'Sign in with ChatGPT' : 'ChatGPT not installed';
+  $('signChatgpt').disabled = !d.chatgpt.installed;
+  return d;
+}
+
+async function startSignIn(which) {
+  const r = await api.aiSignIn(which);
+  if (!r.ok) { showErr(r.error); return; }
+  $('connect').classList.add('waiting');
+  $('connectMsg').textContent = 'Finish signing in in the browser window that just opened. This page will notice.';
+  clearInterval(aiWatch);
+  const started = Date.now();
+  aiWatch = setInterval(async () => {
+    const d = await refreshAI();
+    const done = d && (which === 'claude' ? d.claude.signedIn : d.chatgpt.signedIn);
+    if (done) {
+      clearInterval(aiWatch);
+      await api.aiUse(which === 'claude' ? 'claude' : 'codex');
+      $('connect').classList.remove('waiting');
+      await refreshAI();
+      await loadSettings();
+    } else if (Date.now() - started > 5 * 60 * 1000) {
+      clearInterval(aiWatch);
+      $('connect').classList.remove('waiting');
+      $('connectMsg').textContent = 'The sign-in did not finish. Press the button to try again.';
+    }
+  }, 2500);
+}
+
+$('signClaude').onclick = () => startSignIn('claude');
+$('signChatgpt').onclick = () => startSignIn('chatgpt');
+
 // ---------------- boot ----------------
 
 (async function boot() {
   await loadSettings();
+  refreshAI();
   loadDevices();
   refreshCompanion();
   const items = await api.listMeetings();

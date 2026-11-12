@@ -33,6 +33,7 @@ const sharewatch = require('./sharewatch');
 const { Companion } = require('./companion');
 const { Brain, clarifyBrief, summariseTranscript } = require('./brain');
 const { codexStatus } = require('./codex');
+const ai = require('./ai');
 const { TurnBuffer } = require('./turnbuffer');
 
 const SIZES = {
@@ -224,6 +225,19 @@ function ensureOnScreen(bounds) {
   };
 }
 
+/**
+ * The brain settings with the provider resolved against what is signed in. If
+ * Claude is chosen but only ChatGPT is signed in (or the other way round), the
+ * signed-in one is used, so a meeting never starts against a logged-out AI.
+ */
+function brainSettings(b) {
+  try {
+    const d = ai.detect(b);
+    if (d.use !== (b.provider || 'claude')) return { ...b, provider: d.use };
+  } catch { /* detection failing must not stop a meeting */ }
+  return b;
+}
+
 function createDashboard() {
   if (dashboard) { dashboard.show(); dashboard.focus(); return dashboard; }
   dashboard = new BrowserWindow({
@@ -307,7 +321,7 @@ async function startListening(meetingId) {
   // models are still loading.
   brain = new Brain();
   wireBrain();
-  await brain.start(meeting.brief, settings.brain);
+  await brain.start(meeting.brief, brainSettings(settings.brain));
 
   bridge = new AudioBridge();
   wireBridge();
@@ -641,6 +655,15 @@ function registerHotkeys() {
 // ---------------------------------------------------------------- ipc
 
 function registerIpc() {
+  // Which AI is installed and signed in, and starting a sign-in from the app.
+  ipcMain.handle('ai:status', () => ai.detect(store.getSettings().brain));
+  ipcMain.handle('ai:signin', (_e, which) => ai.signIn(which, store.getSettings().brain));
+  ipcMain.handle('ai:use', (_e, provider) => {
+    if (!['claude', 'codex', 'openai'].includes(provider)) return { ok: false };
+    store.saveSettings({ brain: { provider } });
+    return { ok: true };
+  });
+
   ipcMain.handle('state', () => publicState());
   ipcMain.handle('settings:get', () => store.getSettings());
   ipcMain.handle('settings:save', async (_e, patch) => {
@@ -687,7 +710,7 @@ function registerIpc() {
   // Prep questions work with no meeting running.
   ipcMain.handle('brain:clarify', async (_e, brief) => {
     const s = store.getSettings();
-    return clarifyBrief(brief, s.brain);
+    return clarifyBrief(brief, brainSettings(s.brain));
   });
 
   // Summarise ANY meeting, live or reopened months later.
@@ -695,7 +718,7 @@ function registerIpc() {
     const m = id ? store.getMeeting(id) : meeting;
     if (!m) return { ok: false, error: 'Meeting not found.' };
     const s = store.getSettings();
-    const r = await summariseTranscript(m.transcript, m.brief, s.brain);
+    const r = await summariseTranscript(m.transcript, m.brief, brainSettings(s.brain));
     if (r.ok) {
       m.summary = r.summary;
       store.saveMeeting(m);

@@ -19,6 +19,21 @@ const { OpenAIEngine } = require('../src/main/openai');
 
 // ------------------------------------------------------------ a fake codex
 
+/** A command-line tool that is really one of the scripts in test/fixtures/. */
+function fakeCli(name, fixture) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `mc-${name}-`));
+  const script = path.join(__dirname, 'fixtures', fixture);
+  if (process.platform === 'win32') {
+    const p = path.join(dir, `${name}.cmd`);
+    fs.writeFileSync(p, `@"${process.execPath}" "${script}" %*\r\n`);
+    return p;
+  }
+  const p = path.join(dir, name);
+  fs.writeFileSync(p, `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`);
+  fs.chmodSync(p, 0o755);
+  return p;
+}
+
 /** A codex binary that is really test/fixtures/fake-codex.js. */
 function fakeCodex() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-codex-'));
@@ -264,4 +279,48 @@ test('a meeting exports to a real .docx file', async () => {
   } finally {
     process.chdir(cwd);
   }
+});
+
+// ----------------------------------------------------------- which AI to use
+
+test('ai: uses ChatGPT when Claude is chosen but only ChatGPT is signed in', () => {
+  const ai = require('../src/main/ai');
+  process.env.FAKE_CLAUDE_STATE = 'out';
+  const d = ai.detect({ provider: 'claude', claudePath: fakeCli('claude', 'fake-claude.js'), codexPath: fakeCodex() });
+  assert.equal(d.claude.installed, true);
+  assert.equal(d.claude.signedIn, false);
+  assert.equal(d.chatgpt.signedIn, true);
+  assert.equal(d.use, 'codex');
+  assert.equal(d.ready, true);
+});
+
+test('ai: stays on Claude when Claude is signed in', () => {
+  const ai = require('../src/main/ai');
+  process.env.FAKE_CLAUDE_STATE = 'in';
+  const d = ai.detect({ provider: 'claude', claudePath: fakeCli('claude', 'fake-claude.js'), codexPath: fakeCodex() });
+  assert.equal(d.use, 'claude');
+  assert.equal(d.ready, true);
+});
+
+test('ai: nothing signed in means not ready, so the app shows Sign in', () => {
+  const ai = require('../src/main/ai');
+  process.env.FAKE_CLAUDE_STATE = 'out';
+  process.env.FAKE_CODEX_STATE = 'out';
+  try {
+    const d = ai.detect({ provider: 'claude', claudePath: fakeCli('claude', 'fake-claude.js'), codexPath: fakeCodex() });
+    assert.equal(d.chatgpt.signedIn, false);
+    assert.equal(d.ready, false);
+  } finally {
+    delete process.env.FAKE_CODEX_STATE;
+  }
+});
+
+test('ai: the Sign in button starts the CLI sign-in', async () => {
+  const ai = require('../src/main/ai');
+  const mark = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mc-mark-')), 'called');
+  process.env.FAKE_CLAUDE_MARK = mark;
+  const r = ai.signIn('claude', { claudePath: fakeCli('claude', 'fake-claude.js') });
+  assert.equal(r.ok, true);
+  for (let i = 0; i < 50 && !fs.existsSync(mark); i++) await new Promise((x) => setTimeout(x, 100));
+  assert.equal(fs.readFileSync(mark, 'utf8'), 'auth login --claudeai');
 });

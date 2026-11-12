@@ -11,6 +11,10 @@
  */
 const args = process.argv.slice(2);
 if (args[0] === 'login' && args[1] === 'status') {
+  if (process.env.FAKE_CODEX_STATE === 'out') {
+    process.stdout.write('Not logged in\n');
+    process.exit(1);
+  }
   process.stdout.write('Logged in using ChatGPT\n');
   process.exit(0);
 }

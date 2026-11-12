@@ -16,6 +16,7 @@
     <button id="doctorBtn" class="ghost">Run check-up</button>
     <button id="resetOverlayBtn" class="ghost">Bring panel back</button>
     <button id="folderBtn" class="ghost">Open data folder</button>
+    <div id="aiUsing" class="ai-using"></div>
     <div class="credit">Made by Tanzeel &middot;
       <a href="https://github.com/tanzeeldevAi" target="_blank" rel="noopener">github.com/tanzeeldevAi</a></div>
   </div>
@@ -40,10 +41,23 @@
 
   <div id="err" class="hidden"></div>
 
+  <!-- Shown until an AI is signed in. Each button starts that tool's own
+       sign-in, which opens the browser; the card notices when it finishes. -->
+  <div id="connect" class="hidden">
+    <div class="connect-text">
+      <b>Connect the AI that writes your answers</b>
+      <span id="connectMsg">Sign in once with the subscription you already have. Your browser opens, and this page carries on by itself.</span>
+    </div>
+    <div class="connect-actions">
+      <button id="signClaude" class="primary">Sign in with Claude</button>
+      <button id="signChatgpt">Sign in with ChatGPT</button>
+    </div>
+  </div>
+
   <!-- ---------------- BRIEF ---------------- -->
   <section id="tab-brief" class="tab on">
     <p class="hint">
-      Everything here does two jobs: it tells Claude what the meeting is about, and the
+      Everything here does two jobs: it tells the AI what the meeting is about, and the
       names and jargon get fed into the speech recogniser so it stops mishearing them.
     </p>
 
@@ -68,7 +82,7 @@
     </label>
 
     <label class="full">My prepared material <small>(this is the most important box on the page)</small>
-      <textarea id="background" rows="9" placeholder="Paste your prepared lines, your script, your CV, the proposal, pricing, past results&#10;&#10;Claude uses this as the FIRST place to look for what to say, and adapts your wording to whatever they actually ask.&#10;&#10;Private reminders to yourself are fine - mark them DON'T SAY or NOTE and they will never be read out loud."></textarea>
+      <textarea id="background" rows="9" placeholder="Paste your prepared lines, your script, your CV, the proposal, pricing, past results&#10;&#10;The AI uses this as the FIRST place to look for what to say, and adapts your wording to whatever they actually ask.&#10;&#10;Private reminders to yourself are fine - mark them DON'T SAY or NOTE and they will never be read out loud."></textarea>
     </label>
     <p class="hint" style="margin-top:-6px">
       This works like a script. <b>If you wrote a line for it, it says your line</b> &mdash; close to
@@ -85,12 +99,12 @@
 
     <div class="row">
       <button id="saveBrief" class="primary">Save brief</button>
-      <button id="clarifyBtn" class="ghost">Ask Claude what else it needs</button>
+      <button id="clarifyBtn" class="ghost">Ask the AI what else it needs</button>
       <span id="savedMsg" class="ok hidden">saved</span>
     </div>
 
     <div id="prep" class="hidden">
-      <h3>Claude wants to know</h3>
+      <h3>The AI wants to know</h3>
       <p class="hint">Answering these is the single biggest thing you can do for answer quality.
         Your answers get appended to the background above.</p>
       <div id="prepList"></div>
@@ -190,7 +204,7 @@
     <label class="check"><input type="checkbox" id="sMe" /> Also transcribe my own voice (for context and notes)</label>
     <label class="check"><input type="checkbox" id="sEcho" /> Drop my mic picking up their voice from my speakers</label>
     <label class="check"><input type="checkbox" id="sFallback" /> If Claude fails mid-meeting, keep answering with a backup <small>(the OpenAI key above, or ChatGPT if the Codex CLI is signed in)</small></label>
-    <label class="check"><input type="checkbox" id="sMock" /> Offline demo mode (canned answers, no Claude)</label>
+    <label class="check"><input type="checkbox" id="sMock" /> Offline demo mode (canned answers, no AI)</label>
 
     <div class="row"><button id="saveSettings" class="primary">Save settings</button><span id="setMsg" class="ok hidden">saved</span></div>
 

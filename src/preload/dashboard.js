@@ -33,4 +33,7 @@ contextBridge.exposeInMainWorld('copilot', {
   selectDevices: (sel) => ipcRenderer.invoke('devices:select', sel),
   openFolder: () => ipcRenderer.invoke('open:folder'),
   resetOverlay: () => ipcRenderer.invoke('overlay:reset'),
+  aiStatus: () => ipcRenderer.invoke('ai:status'),
+  aiSignIn: (which) => ipcRenderer.invoke('ai:signin', which),
+  aiUse: (provider) => ipcRenderer.invoke('ai:use', provider),
 });

@@ -67,6 +67,12 @@ app.whenReady().then(async () => {
   ipcMain.handle('meeting:create', () => meeting);
   ipcMain.handle('meeting:save', () => meeting);
   ipcMain.handle('devices:list', () => devices);
+  // CONNECT=1 shows the first-run state: nothing signed in yet.
+  const signedIn = !process.env.CONNECT;
+  ipcMain.handle('ai:status', () => ({
+    claude: { installed: true, signedIn }, chatgpt: { installed: true, signedIn: false },
+    use: 'claude', ready: signedIn,
+  }));
   ipcMain.handle('devices:select', () => ({}));
   ipcMain.handle('devices:testSpeaker', () => ({
     ok: true, which: 'speaker', device: devices.default_output, peak: 0.2589,
