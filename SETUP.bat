@@ -57,10 +57,13 @@ echo   Setup finished.
 echo.
 echo   Last step, once: sign in to the AI that writes your answers.
 echo   Pick one:
+echo     Cursor:   irm 'https://cursor.com/install?win32=true' ^| iex
+echo               then run  agent login
 echo     Claude:   open a terminal, run  claude , type  /login
 echo     ChatGPT:  open a terminal, run  npm install -g @openai/codex
 echo               then  codex login
 echo.
+echo   In the app: Dashboard - Settings - Main brain - Cursor
 echo   Then double-click START.bat
 echo ============================================
 echo.

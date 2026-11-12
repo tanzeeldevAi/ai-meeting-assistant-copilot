@@ -50,9 +50,12 @@ echo
 echo "Setup finished."
 echo
 echo "Last step, once: sign in to the AI that writes your answers. Pick one."
+echo "  Cursor:   curl https://cursor.com/install -fsS | bash"
+echo "            then run  agent login  and finish in the browser."
 echo "  Claude:   open Terminal, run  claude , type  /login  and finish in the browser."
 echo "  ChatGPT:  open Terminal, run  npm install -g @openai/codex  then  codex login"
 echo
+echo "In the app: Dashboard → Settings → Main brain → Cursor (or Claude / ChatGPT)."
 echo "Then double-click START.command. The first start asks for Microphone and"
 echo "Screen & System Audio Recording: allow both for Electron."
 read -n1 -p "Press any key to close." || true
