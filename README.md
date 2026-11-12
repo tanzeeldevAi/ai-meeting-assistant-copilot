@@ -135,20 +135,30 @@ such as Cluely, built for client calls, sales calls and consultations.
 Pick whichever you already have. You can change it any time under
 **Dashboard → Settings → Main brain**.
 
-| | Claude | ChatGPT | OpenAI API |
-|---|---|---|---|
-| What you need | Claude Pro or Max | ChatGPT Plus, Pro or Business | An API key from platform.openai.com |
-| Extra cost | None | None | Pay per use |
-| How it connects | The Claude Code CLI, signed in | The Codex CLI, signed in with ChatGPT | The key, pasted into Settings |
-| First words on screen | About 1 to 2 s after the question | About 7 to 9 s (the reply arrives whole) | About 1 to 2 s |
-| Best for | Live answers | Prep and summaries; works live, but slower | A backup, or if you prefer the API |
+| | Claude | ChatGPT | Cursor | OpenAI API |
+|---|---|---|---|---|
+| What you need | Claude Pro or Max | ChatGPT Plus, Pro or Business | A Cursor subscription | An API key from platform.openai.com |
+| Extra cost | None | None | None | Pay per use |
+| How it connects | The Claude Code CLI, signed in | The Codex CLI, signed in with ChatGPT | The Cursor Agent CLI (`agent`), signed in | The key, pasted into Settings |
+| First words on screen | About 1 to 2 s after the question | About 7 to 9 s (the reply arrives whole) | Similar to ChatGPT (the reply arrives whole) | About 1 to 2 s |
+| Best for | Live answers | Prep and summaries; works live, but slower | If you already pay for Cursor | A backup, or if you prefer the API |
 
 Times are measured from the moment the question is sent, on a real account.
 Speech to text adds its own time on top, see [Speed](#speed).
 
 If Claude fails in the middle of a meeting (a usage limit, an expired login), the app
 switches to a backup on its own and keeps answering: the OpenAI key if you set one,
-otherwise ChatGPT if the Codex CLI is signed in.
+otherwise ChatGPT if the Codex CLI is signed in, otherwise Cursor if the Agent CLI
+is signed in.
+
+### Using Cursor as the brain
+
+1. Install the Cursor CLI: see [cursor.com/docs/cli](https://cursor.com/docs/cli/overview).
+2. In Meeting Copilot, open **Dashboard → Settings → Main brain → Cursor**, or press
+   **Sign in with Cursor** on the connect card.
+3. Finish `agent login` in the browser (or paste a Cursor API key under Settings).
+
+You do not need Claude or ChatGPT for this path.
 
 ---
 
