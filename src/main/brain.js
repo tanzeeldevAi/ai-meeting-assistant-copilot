@@ -440,7 +440,7 @@ function makeStateless(provider, settings) {
 
 function notConfigured(provider) {
   return provider === 'codex'
-    ? 'ChatGPT is selected but the Codex CLI is not installed (npm install -g @openai/codex, then codex login).'
+    ? 'ChatGPT is selected but the Codex CLI is not installed. Run the install line again with ChatGPT chosen (see the README).'
     : 'OpenAI is selected but no API key is set (Dashboard - Settings).';
 }
 

@@ -154,43 +154,74 @@ otherwise ChatGPT if the Codex CLI is signed in.
 
 ## Install in one command
 
-Copy one line, paste it, press Enter. It downloads everything the app needs,
-including Node.js and Python if your computer does not have them, without asking
-for an administrator password. It takes 5 to 10 minutes the first time, then opens
-the app.
+Copy one line, paste it, press Enter. It installs everything the app needs and
+opens it when it is finished. It takes 5 to 10 minutes the first time.
 
-**Windows 10 or 11:** open the Start menu, type **PowerShell**, press Enter, and paste:
+**Windows 10 or 11:** open the Start menu, type **PowerShell**, open it, paste this
+line and press Enter:
 
 ```powershell
 irm https://raw.githubusercontent.com/tanzeeldevAi/ai-meeting-assistant-copilot/main/install.ps1 | iex
 ```
 
-**Mac (macOS 13 or newer):** open **Terminal** (press Cmd + Space, type Terminal), and paste:
+**Mac (macOS 13 or newer):** open **Terminal** (press Cmd + Space and type Terminal),
+paste this line and press Enter:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tanzeeldevAi/ai-meeting-assistant-copilot/main/install.sh | bash
 ```
 
-Afterwards, open **Meeting Copilot** from the desktop or Start menu on Windows, or
-from Launchpad or Spotlight on a Mac. Running the same line again updates the app
-and keeps your meetings and settings.
+<details>
+<summary><b>Pay for ChatGPT, not Claude? Use these lines instead</b></summary>
+
+They install ChatGPT's command-line tool (Codex) in place of Claude's.
+
+**Windows:**
+
+```powershell
+$env:MC_AI='chatgpt'; irm https://raw.githubusercontent.com/tanzeeldevAi/ai-meeting-assistant-copilot/main/install.ps1 | iex
+```
+
+**Mac:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tanzeeldevAi/ai-meeting-assistant-copilot/main/install.sh | MC_AI=chatgpt bash
+```
+
+Already installed with the first line? Run one of these and it adds ChatGPT; your
+meetings and settings stay.
+</details>
+
+### What the command does
+
+1. Downloads the app.
+2. Installs Node.js and Python inside the app's own folder if your computer does not
+   have them. It does not ask for an administrator password and does not touch the
+   programs already on your computer.
+3. Installs the speech packages and the speech model.
+4. Looks for Claude or ChatGPT. If it finds neither, it installs Claude's
+   command-line tool (or ChatGPT's, with the lines above).
+5. Adds a shortcut: on Windows to the desktop and the Start menu, on a Mac to
+   Launchpad and Spotlight.
+6. Opens the app.
+
+| | Windows | Mac |
+|---|---|---|
+| Installed in | `%LOCALAPPDATA%\MeetingCopilot` | `~/MeetingCopilot` |
+| Open it from | Desktop or Start menu: **Meeting Copilot** | Launchpad or Spotlight: **Meeting Copilot** |
+| Update it | Run the same line again | Run the same line again |
+
+Updating keeps your saved meetings and settings.
 
 ### Connect your AI
 
 When the app opens it looks for Claude and ChatGPT on your computer by itself:
 
-- **Already signed in to one?** It connects to it straight away. Nothing to do.
-- **Not signed in yet?** It shows **Sign in with Claude** and **Sign in with
-  ChatGPT**. Press the one you pay for, finish signing in in the browser window that
-  opens, and the app connects as soon as you are done.
-
-If neither is installed, the installer adds Claude's command-line tool for you. To
-use ChatGPT instead, install its tool once in the same window you used above, then
-press **Sign in with ChatGPT** in the app:
-
-```bash
-npm install -g @openai/codex
-```
+| Situation | What happens |
+|---|---|
+| Already signed in to Claude or ChatGPT | It connects straight away. Nothing to do. |
+| Signed in only to the one you did not pick | It switches to that one by itself. |
+| Signed in to neither | Press **Sign in with Claude** or **Sign in with ChatGPT**, log in in the browser window that opens, and it connects as soon as you are done. |
 
 ### The first time on a Mac
 
@@ -338,9 +369,11 @@ the rules that apply to you.
 <details>
 <summary><b>Answers never appear</b></summary>
 
-Run `CHECK.bat` or `CHECK.command`. It says whether the AI is signed in and prints the
-exact fix. Most often: open a terminal, run `claude`, type `/login`, and finish in the
-browser. For ChatGPT: run `codex login`.
+Most often the AI is not signed in. Open the dashboard and press **Sign in with
+Claude** or **Sign in with ChatGPT**, then finish in the browser.
+
+Still nothing? Run `CHECK.bat` (Windows) or `CHECK.command` (Mac) in the app's folder.
+It says whether the AI is signed in and prints the exact fix.
 </details>
 
 <details>

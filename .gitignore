@@ -14,3 +14,6 @@ audio/mac/syscap
 *.docx
 .work/
 .DS_Store
+
+# The installer's own Node, uv and Codex.
+.runtime/

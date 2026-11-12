@@ -895,7 +895,7 @@ async function runDoctor() {
     // ChatGPT is checked for real here: it is a quick local command, no network.
     const c = codexStatus(store.getSettings().brain.codexPath);
     out.claude = !c.installed
-      ? { ok: false, detail: 'ChatGPT is the brain, but the Codex CLI is not installed. Run:  npm install -g @openai/codex  then  codex login' }
+      ? { ok: false, detail: 'ChatGPT is the brain, but the Codex CLI is not installed. Run the install line again with ChatGPT chosen (see the README), then press Sign in with ChatGPT.' }
       : c.signedIn
         ? { ok: true, detail: 'ChatGPT is signed in through the Codex CLI.' }
         : { ok: false, detail: 'The Codex CLI is installed but not signed in. Open a terminal and run:  codex login  (choose "Sign in with ChatGPT").' };

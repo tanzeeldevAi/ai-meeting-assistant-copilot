@@ -23,6 +23,27 @@ const { spawn, spawnSync } = require('child_process');
 
 const IS_WIN = process.platform === 'win32';
 const APP_ROOT = path.join(__dirname, '..', '..');
+// The one-command installer keeps its own Node and, when asked for ChatGPT, its
+// own copy of the Codex CLI in here, so neither needs an administrator.
+const RUNTIME = path.join(APP_ROOT, '.runtime');
+
+/** Folders of the installer's own Node and Codex, first so they win. */
+function runtimeDirs() {
+  return IS_WIN
+    ? [path.join(RUNTIME, 'codex'), path.join(RUNTIME, 'node')]
+    : [path.join(RUNTIME, 'codex', 'bin'), path.join(RUNTIME, 'node', 'bin')];
+}
+
+/**
+ * PATH for running the CLI. The Codex CLI from npm is a Node script, and an
+ * app opened from Finder or the Start menu may have no node on its PATH when
+ * the installer brought its own.
+ */
+function codexEnv(exe) {
+  const extra = [...(exe ? [path.dirname(exe)] : []), ...runtimeDirs()];
+  if (!IS_WIN) extra.push('/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin');
+  return { ...process.env, PATH: [...extra, process.env.PATH || ''].join(path.delimiter) };
+}
 
 // The ChatGPT sign-in only offers the default model and these efforts. "low"
 // is the fastest it accepts ("minimal" is refused with the default model).
@@ -39,7 +60,7 @@ function findCodex(explicit) {
   if (explicit && fs.existsSync(explicit)) return explicit;
   const home = os.homedir();
   const names = IS_WIN ? ['codex.cmd', 'codex.exe', 'codex'] : ['codex'];
-  const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+  const dirs = [runtimeDirs()[0], ...(process.env.PATH || '').split(path.delimiter).filter(Boolean)];
   if (IS_WIN) {
     if (process.env.APPDATA) dirs.push(path.join(process.env.APPDATA, 'npm'));
   } else {
@@ -80,7 +101,7 @@ function codexStatus(explicit) {
   if (!exe) return { installed: false, signedIn: false, exe: null };
   const shell = needsShell(exe);
   const r = spawnSync(shell ? quoteWin(exe) : exe, ['login', 'status'],
-    { encoding: 'utf8', timeout: 15000, windowsHide: true, shell });
+    { encoding: 'utf8', timeout: 15000, windowsHide: true, shell, env: codexEnv(exe) });
   const out = `${r.stdout || ''}${r.stderr || ''}`;
   return { installed: true, signedIn: r.status === 0 && /logged in/i.test(out), exe, detail: out.trim() };
 }
@@ -129,7 +150,7 @@ class CodexEngine {
   send(userText, onDelta, opts = {}) {
     if (!this.configured) {
       return Promise.reject(new Error(
-        'The Codex CLI is not installed. Install it with:  npm install -g @openai/codex'));
+        'The Codex CLI is not installed. Run the install line again with ChatGPT chosen (see the README).'));
     }
     this.abort();
 
@@ -158,7 +179,7 @@ class CodexEngine {
       const shell = needsShell(this.exe);
       const child = spawn(shell ? quoteWin(this.exe) : this.exe,
         shell ? args.map(quoteWin) : args,
-        { windowsHide: true, shell, env: process.env });
+        { windowsHide: true, shell, env: codexEnv(this.exe) });
       this._child = child;
 
       let buf = '';
@@ -226,4 +247,4 @@ function explain(msg) {
   return m.replace(/\s+/g, ' ').trim().slice(0, 300);
 }
 
-module.exports = { CodexEngine, findCodex, codexStatus, explain, DEFAULT_EFFORT };
+module.exports = { CodexEngine, findCodex, codexStatus, codexEnv, explain, DEFAULT_EFFORT };

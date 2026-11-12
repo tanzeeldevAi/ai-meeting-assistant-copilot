@@ -15,7 +15,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
-const { findCodex } = require('./codex');
+const { findCodex, codexEnv } = require('./codex');
 
 const IS_WIN = process.platform === 'win32';
 
@@ -49,9 +49,7 @@ function findClaude(explicit) {
  * so a CLI that is really a Node script finds the node it was installed with.
  */
 function cliEnv(exe) {
-  const extra = [path.dirname(exe)];
-  if (!IS_WIN) extra.push('/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin');
-  const env = { ...process.env, PATH: [...extra, process.env.PATH || ''].join(path.delimiter) };
+  const env = codexEnv(exe);
   // Started from inside another Claude session (a developer running the app
   // from a terminal), these make the CLI report that session instead.
   for (const k of Object.keys(env)) {
@@ -98,6 +96,9 @@ function detect(settings = {}) {
   // use the other. An API key choice ('openai') is the user's explicit call
   // and is left alone.
   if (chosen === 'claude' && claude.signedIn === false && chatgpt.signedIn) use = 'codex';
+  // Only ChatGPT's tool is on this computer (installed with MC_AI=chatgpt):
+  // that is the one to offer, even before it is signed in.
+  if (chosen === 'claude' && !claude.installed && chatgpt.installed) use = 'codex';
   if (chosen === 'codex' && !chatgpt.signedIn && claude.signedIn) use = 'claude';
   const ready = chosen === 'openai' ? !!settings.openaiKey
     : use === 'codex' ? !!chatgpt.signedIn : claude.signedIn !== false;
@@ -112,7 +113,7 @@ function signIn(which, settings = {}) {
   const exe = which === 'chatgpt' ? findCodex(settings.codexPath) : findClaude(settings.claudePath);
   if (!exe) {
     return { ok: false, error: which === 'chatgpt'
-      ? 'ChatGPT needs the Codex CLI. Run the installer again, or: npm install -g @openai/codex'
+      ? 'ChatGPT needs the Codex CLI. Run the install line again with ChatGPT chosen (see the README).'
       : 'Claude needs the Claude CLI. Run the installer again, or see claude.com/claude-code' };
   }
   const args = which === 'chatgpt' ? ['login'] : ['auth', 'login', '--claudeai'];

@@ -3,6 +3,8 @@
 #   irm https://raw.githubusercontent.com/tanzeeldevAi/ai-meeting-assistant-copilot/main/install.ps1 | iex
 #
 # Paste that into PowerShell (Start menu > type "PowerShell" > Enter).
+# For ChatGPT instead of Claude:
+#   $env:MC_AI='chatgpt'; irm .../install.ps1 | iex
 # Installs into %LOCALAPPDATA%\MeetingCopilot without administrator rights:
 # Node and Python are fetched into the app's own folder if this PC does not
 # already have suitable versions. Running it again updates the app and keeps
@@ -11,7 +13,9 @@
 # Options, as environment variables:
 #   MC_DIR             install somewhere else
 #   MC_NO_LAUNCH=1     do not open the app at the end
-#   MC_SKIP_AI=1       do not install the Claude CLI when no AI is found
+#   MC_AI=chatgpt      use ChatGPT: installs its Codex CLI (into the app's folder)
+#   MC_AI=claude       use Claude: installs the Claude CLI if it is missing
+#   MC_SKIP_AI=1       install no AI tool at all
 #   MC_FORCE_PORTABLE=1  ignore this PC's own Node and Python (used by the tests)
 #   MC_SOURCE          install from a local copy instead of GitHub (used by the tests)
 #   MC_NO_SHORTCUTS=1  do not create the desktop and Start menu shortcuts
@@ -145,15 +149,22 @@ try {
   # ------------------------------------------------------------- the AI
   Step '[6/6] The AI that writes your answers'
   $claudeExe = Join-Path $env:USERPROFILE '.local\bin\claude.exe'
-  $haveClaude = (Get-Command claude -ErrorAction SilentlyContinue) -or (Test-Path $claudeExe)
-  $haveCodex = [bool](Get-Command codex -ErrorAction SilentlyContinue)
-  if ($haveClaude -or $haveCodex) {
-    if ($haveClaude) { Info 'found Claude' }
-    if ($haveCodex) { Info 'found ChatGPT (Codex CLI)' }
-  } elseif ($env:MC_SKIP_AI) {
+  $codexOwn = Join-Path $Rt 'codex\codex.cmd'
+  $haveClaude = [bool]((Get-Command claude -ErrorAction SilentlyContinue) -or (Test-Path $claudeExe))
+  $haveCodex = [bool]((Get-Command codex -ErrorAction SilentlyContinue) -or (Test-Path $codexOwn))
+  $want = "$env:MC_AI".ToLower()
+  if ($haveClaude) { Info 'found Claude' }
+  if ($haveCodex) { Info 'found ChatGPT (Codex CLI)' }
+  if ($env:MC_SKIP_AI) {
     Info 'skipped'
-  } else {
-    Info 'installing the Claude CLI (you can switch to ChatGPT in the app)'
+  } elseif ($want -eq 'chatgpt' -or $want -eq 'codex') {
+    if (-not $haveCodex) {
+      Info "installing ChatGPT's Codex CLI"
+      $ok = Try-Run 'npm.cmd' @('install', '-g', '--prefix', (Join-Path $Rt 'codex'), '--no-fund', '--no-audit', '--loglevel=error', '@openai/codex')
+      if (-not ($ok -and (Test-Path $codexOwn))) { Info 'could not install it now; run this line again later' }
+    }
+  } elseif (($want -eq 'claude' -and -not $haveClaude) -or (-not $want -and -not $haveClaude -and -not $haveCodex)) {
+    Info 'installing the Claude CLI (for ChatGPT, see the README)'
     # In its own PowerShell, so nothing it does can end this installer.
     if (-not (Try-Run 'powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', 'irm https://claude.ai/install.ps1 | iex'))) {
       Info 'could not install it now; the app will tell you how'

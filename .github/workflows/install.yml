@@ -3,8 +3,9 @@ name: One-command install
 # Runs the installers the README tells people to paste, on a clean macOS and
 # Windows machine, from this commit rather than from main. Node and Python are
 # forced to the portable downloads, so the path a new user without either one
-# takes is the path that gets tested. The AI sign-in is skipped: it needs a
-# person and a browser.
+# takes is the path that gets tested. ChatGPT is chosen, so its Codex CLI is
+# installed into the app's folder and run with the portable Node. Signing in
+# is not tested: it needs a person and a browser.
 on:
   push:
   pull_request:
@@ -20,9 +21,8 @@ jobs:
           MC_DIR: ${{ runner.temp }}/MeetingCopilot
           MC_APPS_DIR: ${{ runner.temp }}/Applications
           MC_FORCE_PORTABLE: "1"
-          MC_SKIP_AI: "1"
           MC_NO_LAUNCH: "1"
-        run: cat install.sh | bash
+        run: cat install.sh | MC_AI=chatgpt bash
       - name: Everything is in place
         env:
           D: ${{ runner.temp }}/MeetingCopilot
@@ -33,6 +33,9 @@ jobs:
           "$D/audio/mac/syscap" --devices
           test -x "${{ runner.temp }}/Applications/Meeting Copilot.app/Contents/MacOS/MeetingCopilot"
           cd "$D" && "$D/.runtime/node/bin/node" -e "const {resolvePython}=require('./src/main/bridge');const p=resolvePython();if(!p||!/\.venv/.test(p.exe))process.exit(1);console.log('app finds',p.exe)"
+          # The app finds the Codex it installed and can run it with no node on
+          # PATH, as when it is opened from Finder.
+          cd "$D" && env -i HOME="$HOME" PATH=/usr/bin:/bin "$D/.runtime/node/bin/node" tools/check-codex-install.js
       - name: The ready-made audio helper runs on Intel
         run: |
           curl -fsSL -o syscap https://github.com/${{ github.repository }}/releases/latest/download/syscap-macos-universal
@@ -48,7 +51,7 @@ jobs:
           MC_SOURCE: ${{ github.workspace }}
           MC_DIR: ${{ runner.temp }}\MeetingCopilot
           MC_FORCE_PORTABLE: "1"
-          MC_SKIP_AI: "1"
+          MC_AI: chatgpt
           MC_NO_LAUNCH: "1"
         # The same thing the README's one-liner does, but from this commit.
         run: Get-Content -Raw install.ps1 | Invoke-Expression
@@ -65,4 +68,6 @@ jobs:
           Push-Location $D
           & "$D\.runtime\node\node.exe" -e "const {resolvePython}=require('./src/main/bridge');const p=resolvePython();if(!p||!/\.venv/.test(p.exe))process.exit(1);console.log('app finds',p.exe)"
           if ($LASTEXITCODE -ne 0) { throw 'app does not find the Python the installer made' }
+          & "$D\.runtime\node\node.exe" tools\check-codex-install.js
+          if ($LASTEXITCODE -ne 0) { throw "app does not find or run the Codex the installer made ($LASTEXITCODE)" }
           Pop-Location

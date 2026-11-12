@@ -18,9 +18,9 @@ function line() { console.log('  ' + '-'.repeat(66)); }
   if (!st.installed) {
     console.log('  The Codex CLI is not installed.');
     console.log('');
-    console.log('  To use your ChatGPT subscription, open a terminal and run:');
-    console.log('    npm install -g @openai/codex');
-    console.log('    codex login        (choose "Sign in with ChatGPT")');
+    console.log('  To use your ChatGPT subscription, run the install line again with');
+    console.log('  ChatGPT chosen (README, "Pay for ChatGPT, not Claude?"), then press');
+    console.log('  Sign in with ChatGPT in the dashboard.');
     console.log('');
     process.exit(1);
   }
@@ -28,7 +28,7 @@ function line() { console.log('  ' + '-'.repeat(66)); }
   console.log('  signed in  :', st.signedIn ? 'yes, with ChatGPT' : 'NO');
   line();
   if (!st.signedIn) {
-    console.log('  Open a terminal, run   codex login   and choose "Sign in with ChatGPT".');
+    console.log('  Press  Sign in with ChatGPT  in the dashboard and finish in the browser.');
     console.log('');
     process.exit(1);
   }

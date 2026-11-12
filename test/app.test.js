@@ -173,7 +173,7 @@ test('codex: a missing binary says how to install it', async () => {
   const e = new CodexEngine({ codexPath: '/nope/codex' });
   e.exe = null;
   assert.equal(e.configured, false);
-  await assert.rejects(e.send('hi'), /npm install -g @openai\/codex/);
+  await assert.rejects(e.send('hi'), /install line again with ChatGPT/);
 });
 
 // ----------------------------------------------------------- OpenAI API engine
@@ -323,4 +323,27 @@ test('ai: the Sign in button starts the CLI sign-in', async () => {
   assert.equal(r.ok, true);
   for (let i = 0; i < 50 && !fs.existsSync(mark); i++) await new Promise((x) => setTimeout(x, 100));
   assert.equal(fs.readFileSync(mark, 'utf8'), 'auth login --claudeai');
+});
+
+test('ai: only ChatGPT installed means the app offers ChatGPT', () => {
+  const ai = require('../src/main/ai');
+  process.env.FAKE_CODEX_STATE = 'out';
+  try {
+    const d = ai.detect({ provider: 'claude', claudePath: '/nope/claude', codexPath: fakeCodex() });
+    // findClaude may still find a real Claude on a developer's computer.
+    if (!d.claude.installed) assert.equal(d.use, 'codex');
+    assert.equal(d.ready, false);
+  } finally {
+    delete process.env.FAKE_CODEX_STATE;
+  }
+});
+
+test("codex: the installer's own Node and Codex come first on the CLI's PATH", () => {
+  const { codexEnv } = require('../src/main/codex');
+  const exe = path.join(os.tmpdir(), 'somewhere', process.platform === 'win32' ? 'codex.cmd' : 'codex');
+  const parts = codexEnv(exe).PATH.split(path.delimiter);
+  const rt = path.join(__dirname, '..', '.runtime');
+  assert.equal(parts[0], path.dirname(exe));
+  const node = process.platform === 'win32' ? path.join(rt, 'node') : path.join(rt, 'node', 'bin');
+  assert.ok(parts.indexOf(node) > 0 && parts.indexOf(node) < 4, 'own Node is near the front');
 });

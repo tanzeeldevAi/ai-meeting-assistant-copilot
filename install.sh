@@ -3,6 +3,9 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/tanzeeldevAi/ai-meeting-assistant-copilot/main/install.sh | bash
 #
+# For ChatGPT instead of Claude, put MC_AI=chatgpt before bash:
+#   curl -fsSL .../install.sh | MC_AI=chatgpt bash
+#
 # Installs into ~/MeetingCopilot without an administrator password: Node and
 # Python are fetched into the app's own folder if the Mac does not already
 # have suitable versions. Running it again updates the app and keeps your
@@ -11,7 +14,9 @@
 # Options, as environment variables:
 #   MC_DIR=...            install somewhere else
 #   MC_NO_LAUNCH=1        do not open the app at the end
-#   MC_SKIP_AI=1          do not install the Claude CLI when no AI is found
+#   MC_AI=chatgpt         use ChatGPT: installs its Codex CLI (into the app's folder)
+#   MC_AI=claude          use Claude: installs the Claude CLI if it is missing
+#   MC_SKIP_AI=1          install no AI tool at all
 #   MC_FORCE_PORTABLE=1   ignore the Mac's own Node and Python (used by the tests)
 #   MC_SOURCE=/path       install from a local copy instead of GitHub (used by the tests)
 #   MC_APPS_DIR=...       where the launcher goes (default ~/Applications)
@@ -124,14 +129,23 @@ info "done"
 bold "[6/6] The AI that writes your answers"
 have_claude=""; have_codex=""
 { command -v claude >/dev/null 2>&1 || [ -x "$HOME/.local/bin/claude" ]; } && have_claude=1
-command -v codex >/dev/null 2>&1 && have_codex=1
-if [ -n "$have_claude" ] || [ -n "$have_codex" ]; then
-  [ -n "$have_claude" ] && info "found Claude"
-  [ -n "$have_codex" ] && info "found ChatGPT (Codex CLI)"
-elif [ -n "${MC_SKIP_AI:-}" ]; then
+{ command -v codex >/dev/null 2>&1 || [ -x "$RT/codex/bin/codex" ]; } && have_codex=1
+want="$(printf '%s' "${MC_AI:-}" | tr '[:upper:]' '[:lower:]')"
+[ -n "$have_claude" ] && info "found Claude"
+[ -n "$have_codex" ] && info "found ChatGPT (Codex CLI)"
+if [ -n "${MC_SKIP_AI:-}" ]; then
   info "skipped"
-else
-  info "installing the Claude CLI (you can switch to ChatGPT in the app)"
+elif [ "$want" = "chatgpt" ] || [ "$want" = "codex" ]; then
+  if [ -z "$have_codex" ]; then
+    # Into the app's own folder: a global npm install would need sudo on many Macs.
+    info "installing ChatGPT's Codex CLI"
+    npm install -g --prefix "$RT/codex" --no-fund --no-audit --loglevel=error @openai/codex >/dev/null 2>&1 \
+      && [ -x "$RT/codex/bin/codex" ] \
+      || info "could not install it now; run this line again later"
+  fi
+elif { [ "$want" = "claude" ] && [ -z "$have_claude" ]; } \
+  || { [ -z "$want" ] && [ -z "$have_claude" ] && [ -z "$have_codex" ]; }; then
+  info "installing the Claude CLI (for ChatGPT, see the README)"
   curl -fsSL https://claude.ai/install.sh | bash >/dev/null 2>&1 \
     || info "could not install it now; the app will tell you how"
 fi
