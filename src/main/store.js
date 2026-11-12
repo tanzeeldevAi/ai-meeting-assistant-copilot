@@ -57,12 +57,15 @@ const DEFAULT_SETTINGS = {
     suggestions: true,
     mock: false,
     apiKey: '',              // Anthropic key: only if the CLI cannot use the subscription
-    provider: 'claude',      // 'claude' | 'codex' (ChatGPT subscription) | 'openai' (API key)
+    provider: 'claude',      // 'claude' | 'codex' (ChatGPT) | 'cursor' (Cursor CLI) | 'openai' (API key)
     openaiKey: '',           // OpenAI API key, only for provider 'openai'
     openaiModel: 'gpt-4o-mini',
     codexPath: '',           // optional: full path to the codex binary if it is not found
     codexModel: '',          // empty = the default model for a ChatGPT sign-in
     codexEffort: 'low',      // the fastest effort the ChatGPT sign-in accepts
+    cursorPath: '',          // optional: full path to the Cursor `agent` binary
+    cursorModel: '',         // empty = Cursor's default model for the account
+    cursorApiKey: '',        // optional: CURSOR_API_KEY instead of browser login
     fallbackToOpenAI: true,  // if Claude fails mid-meeting, keep answering with a backup brain
   },
   // Read the answers on your phone instead of on screen. The only way to be

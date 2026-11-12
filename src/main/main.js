@@ -33,6 +33,7 @@ const sharewatch = require('./sharewatch');
 const { Companion } = require('./companion');
 const { Brain, clarifyBrief, summariseTranscript } = require('./brain');
 const { codexStatus } = require('./codex');
+const { cursorStatus } = require('./cursor');
 const ai = require('./ai');
 const { TurnBuffer } = require('./turnbuffer');
 
@@ -659,7 +660,7 @@ function registerIpc() {
   ipcMain.handle('ai:status', () => ai.detect(store.getSettings().brain));
   ipcMain.handle('ai:signin', (_e, which) => ai.signIn(which, store.getSettings().brain));
   ipcMain.handle('ai:use', (_e, provider) => {
-    if (!['claude', 'codex', 'openai'].includes(provider)) return { ok: false };
+    if (!['claude', 'codex', 'cursor', 'openai'].includes(provider)) return { ok: false };
     store.saveSettings({ brain: { provider } });
     return { ok: true };
   });
@@ -890,17 +891,25 @@ async function runDoctor() {
   // look at the pixels where the overlay is sitting.
   out.capture = await measureCapture();
 
-  const provider = (store.getSettings().brain.provider || 'claude').toLowerCase();
+  const brainCfg = store.getSettings().brain;
+  const provider = (brainCfg.provider || 'claude').toLowerCase();
   if (provider === 'codex') {
     // ChatGPT is checked for real here: it is a quick local command, no network.
-    const c = codexStatus(store.getSettings().brain.codexPath);
+    const c = codexStatus(brainCfg.codexPath);
     out.claude = !c.installed
       ? { ok: false, detail: 'ChatGPT is the brain, but the Codex CLI is not installed. Run the install line again with ChatGPT chosen (see the README), then press Sign in with ChatGPT.' }
       : c.signedIn
         ? { ok: true, detail: 'ChatGPT is signed in through the Codex CLI.' }
         : { ok: false, detail: 'The Codex CLI is installed but not signed in. Open a terminal and run:  codex login  (choose "Sign in with ChatGPT").' };
+  } else if (provider === 'cursor') {
+    const c = cursorStatus(brainCfg.cursorPath, brainCfg);
+    out.claude = !c.installed && !c.viaKey
+      ? { ok: false, detail: 'Cursor is the brain, but the Cursor CLI (`agent`) is not installed. See https://cursor.com/docs/cli/overview then press Sign in with Cursor.' }
+      : c.signedIn
+        ? { ok: true, detail: c.viaKey ? 'Cursor API key is set.' : 'Cursor is signed in through the Agent CLI.' }
+        : { ok: false, detail: 'The Cursor CLI is installed but not signed in. Open a terminal and run:  agent login' };
   } else if (provider === 'openai') {
-    out.claude = store.getSettings().brain.openaiKey
+    out.claude = brainCfg.openaiKey
       ? { ok: true, detail: 'OpenAI API key is set. It is checked when a meeting starts.' }
       : { ok: false, detail: 'OpenAI API is the brain, but no API key is set. Add it under Brain & speech.' };
   } else {
