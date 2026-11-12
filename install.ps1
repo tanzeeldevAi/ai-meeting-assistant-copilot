@@ -34,10 +34,26 @@ function Fail($t) { Write-Host ''; Write-Host "  $t" -ForegroundColor Red; Write
 
 # Run a native program and stop if it fails. PowerShell 5 does not do this by
 # itself for exit codes.
+#
+# Judged by the exit code alone. With ErrorActionPreference at Stop, Windows
+# PowerShell 5 turns any line a program writes to stderr into a terminating
+# error, so a harmless warning (Hugging Face prints one on every download)
+# killed the whole install.
 function Run {
   param([string]$Exe, [string[]]$Arguments)
-  & $Exe @Arguments
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try { & $Exe @Arguments 2>&1 | ForEach-Object { "$_" } | Out-Host } finally { $ErrorActionPreference = $prev }
   if ($LASTEXITCODE -ne 0) { Fail "$Exe failed (exit $LASTEXITCODE)." }
+}
+
+# Same, for a step that is allowed to fail. Returns whether it worked.
+function Try-Run {
+  param([string]$Exe, [string[]]$Arguments)
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try { & $Exe @Arguments *> $null } finally { $ErrorActionPreference = $prev }
+  return ($LASTEXITCODE -eq 0)
 }
 
 Write-Host ''
@@ -68,8 +84,11 @@ try {
   Step '[2/6] Node.js'
   $nodeOk = $false
   if (-not $env:MC_FORCE_PORTABLE -and (Get-Command node -ErrorAction SilentlyContinue)) {
-    $major = [int](& node -p "process.versions.node.split('.')[0]")
-    $nodeOk = $major -ge 18
+    try {
+      $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+      $major = [int]((& node -p "process.versions.node.split('.')[0]" 2>$null) | Select-Object -First 1)
+      $nodeOk = $major -ge 18
+    } catch { $nodeOk = $false } finally { $ErrorActionPreference = $prev }
   }
   if (-not $nodeOk) {
     $nodeDir = Join-Path $Rt 'node'
@@ -119,8 +138,8 @@ try {
 
   # ------------------------------------------------------------- speech model
   Step '[5/6] Speech model'
-  & $py -c "from faster_whisper import WhisperModel; WhisperModel('tiny.en', compute_type='int8')" 2>$null | Out-Null
-  if ($LASTEXITCODE -ne 0) { Info 'it will download the first time you listen' } else { Info 'done' }
+  $model = "from faster_whisper import WhisperModel; WhisperModel('tiny.en', compute_type='int8')"
+  if (Try-Run $py @('-c', $model)) { Info 'done' } else { Info 'it will download the first time you listen' }
   Run $py @('-c', 'import pyaudiowpatch, scipy, faster_whisper, webrtcvad, websockets')
 
   # ------------------------------------------------------------- the AI
@@ -136,8 +155,9 @@ try {
   } else {
     Info 'installing the Claude CLI (you can switch to ChatGPT in the app)'
     # In its own PowerShell, so nothing it does can end this installer.
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "irm https://claude.ai/install.ps1 | iex" | Out-Null
-    if ($LASTEXITCODE -ne 0) { Info 'could not install it now; the app will tell you how' }
+    if (-not (Try-Run 'powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', 'irm https://claude.ai/install.ps1 | iex'))) {
+      Info 'could not install it now; the app will tell you how'
+    }
   }
 
   # ------------------------------------------------------------- shortcuts
