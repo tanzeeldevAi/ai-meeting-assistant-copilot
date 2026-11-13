@@ -66,7 +66,8 @@ info "done"
 bold "[2/6] Node.js"
 NODE_OK=""
 if [ -z "${MC_FORCE_PORTABLE:-}" ] && command -v node >/dev/null 2>&1; then
-  [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 18 ] && NODE_OK=1
+  # A Node built for a newer macOS fails to start; then the portable one is used.
+  [ "$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null)" -ge 18 ] 2>/dev/null && NODE_OK=1
 fi
 if [ -z "$NODE_OK" ]; then
   if [ ! -x "$RT/node/bin/node" ]; then
