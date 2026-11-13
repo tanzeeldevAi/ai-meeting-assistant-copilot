@@ -102,6 +102,11 @@ info "$("$DIR/.venv/bin/python3" -V)"
 # --------------------------------------------------------------- app packages
 bold "[4/6] App packages"
 ( cd "$DIR" && npm install --no-fund --no-audit --loglevel=error )
+# Some npm versions (the one with Node 26, for one) skip install scripts, and
+# Electron downloads its app in one. Fetch it directly if it is not there.
+if [ ! -x "$DIR/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" ]; then
+  ( cd "$DIR" && node node_modules/electron/install.js ) || die "Could not download Electron."
+fi
 info "done"
 
 # --------------------------------------------------------------- audio helper + model

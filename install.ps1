@@ -137,7 +137,15 @@ try {
   # ------------------------------------------------------------- app packages
   Step '[4/6] App packages'
   Push-Location $Dir
-  try { Run 'npm.cmd' @('install', '--no-fund', '--no-audit', '--loglevel=error') } finally { Pop-Location }
+  try {
+    Run 'npm.cmd' @('install', '--no-fund', '--no-audit', '--loglevel=error')
+    # Some npm versions (the one with Node 26, for one) skip install scripts,
+    # and Electron downloads its app in one. Fetch it directly if it is missing.
+    if (-not (Test-Path 'node_modules\electron\dist\electron.exe')) {
+      Info 'downloading Electron'
+      Run 'node' @('node_modules\electron\install.js')
+    }
+  } finally { Pop-Location }
   Info 'done'
 
   # ------------------------------------------------------------- speech model
