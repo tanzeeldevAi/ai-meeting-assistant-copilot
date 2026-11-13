@@ -79,7 +79,11 @@ on('status', (m) => {
 
 on('devices', (m) => {
   if (!m.loopback) showBanner('No speaker loopback found - the other person cannot be heard. Check your output device.');
-  else statusEl.title = `hearing: ${m.loopback}\nmic: ${m.mic || 'none'}`;
+  else if (/hears both sides/.test(m.loopback)) {
+    // A Mac older than macOS 13: the mic hears the room, the call included.
+    showBanner('Listening through the microphone. Use your speakers, not headphones, so it hears the other person.', 'warn');
+    statusEl.title = `hearing: ${m.loopback}`;
+  } else statusEl.title = `hearing: ${m.loopback}\nmic: ${m.mic || 'none'}`;
 });
 
 on('level', (m) => { level(mThem, m.them || 0); level(mMe, m.me || 0); });

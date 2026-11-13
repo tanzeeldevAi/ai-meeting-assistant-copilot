@@ -77,3 +77,49 @@ class HallucinationFilter(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(sys.platform == "darwin", "the macOS audio shim")
+class OldMac(unittest.TestCase):
+    """Before macOS 13 there is no system-audio capture: what the shim offers."""
+
+    def shim(self, names):
+        import importlib
+        os.environ["MC_OLD_MAC"] = "1"
+        import mac_pa
+        importlib.reload(mac_pa)
+        devs = []
+        for i, (n, ins, outs) in enumerate(names):
+            devs.append({"index": i, "name": n, "hostApi": 0, "maxInputChannels": ins,
+                         "maxOutputChannels": outs, "defaultSampleRate": 48000.0})
+        p = mac_pa.PyAudio.__new__(mac_pa.PyAudio)
+        p._devs, p._streams, p._ca, p._ca_at = devs, set(), None, 0.0
+        import threading
+        p._lock = threading.RLock()
+        return p
+
+    def tearDown(self):
+        os.environ.pop("MC_OLD_MAC", None)
+        import importlib
+        import mac_pa
+        importlib.reload(mac_pa)
+
+    def test_no_loopback_driver_offers_no_loopback(self):
+        p = self.shim([("MacBook Pro Speakers", 0, 2), ("MacBook Pro Microphone", 1, 0)])
+        self.assertEqual(list(p.get_loopback_device_info_generator()), [])
+
+    def test_plain_speakers_with_blackhole_still_offer_none(self):
+        # BlackHole hears only what is sent to it; plain speakers send it nothing.
+        p = self.shim([("MacBook Pro Speakers", 0, 2), ("BlackHole 2ch", 2, 2)])
+        names = [d["name"] for d in p.get_loopback_device_info_generator()]
+        self.assertEqual(names, ["BlackHole 2ch [Loopback]"])
+        self.assertNotIn("MacBook Pro Speakers [Loopback]", names)
+
+    def test_multi_output_with_blackhole_is_heard(self):
+        p = self.shim([("MacBook Pro Speakers", 0, 2), ("BlackHole 2ch", 2, 2),
+                       ("Multi-Output Device", 0, 2)])
+        names = [d["name"] for d in p.get_loopback_device_info_generator()]
+        self.assertIn("Multi-Output Device [Loopback]", names)
+        info = p.get_device_info_by_index(10000 + 2)
+        self.assertEqual(info["maxInputChannels"], 2)
+        self.assertEqual(info["defaultSampleRate"], 48000.0)

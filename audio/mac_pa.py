@@ -11,6 +11,12 @@ Rather than fork that code, this module answers the same calls on a Mac:
                     so devices.loopback_for() keeps working, but they all hear
                     the same thing: whatever the Mac plays, AirPods included.
 
+Before macOS 13 apps cannot capture the system mix, and syscap does not run.
+There, a "[Loopback]" is offered only while the Mac plays through a virtual
+device that a loopback driver can hear (BlackHole, or a Multi-Output Device
+that includes it), and it records that driver's input. Otherwise none is
+offered and the engine listens through the microphone instead.
+
 Two Mac facts shape it:
 
 1. PortAudio reads the device list once, at initialise. It can only be
@@ -22,6 +28,8 @@ Two Mac facts shape it:
 
 import json
 import os
+import platform
+import re
 import subprocess
 import sys
 import threading
@@ -41,6 +49,20 @@ LOOPBACK_SUFFIX = " [Loopback]"
 LOOPBACK_BASE = 10000      # loopback i mirrors output device i - LOOPBACK_BASE
 SYSCAP_SR = 16000
 
+
+
+def _mac_major():
+    try:
+        return int(platform.mac_ver()[0].split(".")[0])
+    except Exception:
+        return 99
+
+
+# ScreenCaptureKit audio arrived in macOS 13. MC_OLD_MAC=1 forces the old path (tests).
+OLD_MAC = _mac_major() < 13 or os.environ.get("MC_OLD_MAC") == "1"
+VIRTUAL_IN = re.compile(r"blackhole|soundflower|loopback audio|vb-cable", re.I)
+VIRTUAL_OUT = re.compile(r"blackhole|soundflower|loopback audio|vb-cable|multi-output", re.I)
+
 PERMISSION_HELP = ("macOS blocked system-audio capture. Open System Settings > Privacy & Security > "
                    "Screen & System Audio Recording, turn ON the app that started Meeting Copilot "
                    "(Electron or Terminal), then quit and reopen it.")
@@ -48,6 +70,8 @@ PERMISSION_HELP = ("macOS blocked system-audio capture. Open System Settings > P
 
 def coreaudio_now():
     """Current default device names from Core Audio, or None if the helper fails."""
+    if OLD_MAC and not os.environ.get("MC_OLD_MAC"):
+        return None          # syscap needs macOS 13; sounddevice's defaults are used
     try:
         r = subprocess.run([SYSCAP, "--devices"], capture_output=True, text=True, timeout=3)
         return json.loads(r.stdout)
@@ -127,19 +151,33 @@ class PyAudio:
     def get_device_count(self):
         return len(self._devs)
 
+    def _virtual_input(self):
+        """The input side of a loopback driver such as BlackHole, if one is installed."""
+        for d in self._devs:
+            if d["maxInputChannels"] > 0 and VIRTUAL_IN.search(d["name"]):
+                return d
+        return None
+
     def get_device_info_by_index(self, i):
         if i >= LOOPBACK_BASE:
             out = self._devs[i - LOOPBACK_BASE]
+            rate, ch = float(SYSCAP_SR), 1
+            if OLD_MAC:
+                vin = self._virtual_input() or {}
+                rate = float(vin.get("defaultSampleRate") or 48000)
+                ch = max(1, min(2, int(vin.get("maxInputChannels") or 1)))
             return {"index": i, "name": out["name"] + LOOPBACK_SUFFIX, "hostApi": 0,
-                    "maxInputChannels": 1, "maxOutputChannels": 0,
-                    "defaultSampleRate": float(SYSCAP_SR), "isLoopbackDevice": True}
+                    "maxInputChannels": ch, "maxOutputChannels": 0,
+                    "defaultSampleRate": rate, "isLoopbackDevice": True}
         if i < 0 or i >= len(self._devs):
             raise IOError("Invalid device index %r" % i)
         return dict(self._devs[i])
 
     def get_loopback_device_info_generator(self):
+        if OLD_MAC and self._virtual_input() is None:
+            return
         for d in self._devs:
-            if d["maxOutputChannels"] > 0:
+            if d["maxOutputChannels"] > 0 and (not OLD_MAC or VIRTUAL_OUT.search(d["name"])):
                 yield self.get_device_info_by_index(LOOPBACK_BASE + d["index"])
 
     # ---------- streams ----------
@@ -147,7 +185,13 @@ class PyAudio:
     def open(self, format=paFloat32, channels=1, rate=16000, input=False, output=False,
              input_device_index=None, output_device_index=None, frames_per_buffer=1024,
              stream_callback=None, **_):
-        if input and input_device_index is not None and input_device_index >= LOOPBACK_BASE:
+        if input and input_device_index is not None and input_device_index >= LOOPBACK_BASE and OLD_MAC:
+            vin = self._virtual_input()
+            if vin is None:
+                raise RuntimeError("No loopback driver (such as BlackHole) is installed.")
+            st = SdStream(self, channels, rate, True, False, vin["index"],
+                          frames_per_buffer, stream_callback)
+        elif input and input_device_index is not None and input_device_index >= LOOPBACK_BASE:
             st = SysCapStream(self, frames_per_buffer, stream_callback)
         else:
             st = SdStream(self, channels, rate, input, output,

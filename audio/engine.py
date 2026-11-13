@@ -81,6 +81,7 @@ class Engine:
 
         self.stt = None
         self.stream = None        # Deepgram live stream for THEM, when backend=cloud
+        self.mic_only = False     # no system audio: the mic stands in for both sides
         self.paused = False
         self._stop = threading.Event()
 
@@ -191,6 +192,7 @@ class Engine:
         self._sig = devices.signature(self.p)
 
         vcfg = dict(self.cfg.get("vad", {}))
+        self.mic_only = False
 
         if lb is not None:
             if self.stream is None:
@@ -201,11 +203,28 @@ class Engine:
                 self.sources["them"] = src
             except Exception as e:
                 self.emit({"t": "error", "where": "loopback", "msg": str(e)})
+        elif mic is not None:
+            # This computer cannot hand its own sound to apps (a Mac older than
+            # macOS 13 without BlackHole). The microphone hears the room, the
+            # other person through the speakers included, so it stands in for
+            # both sides. Their words and yours arrive as one voice.
+            self.mic_only = True
+            if self.stream is None:
+                self.segs["them"] = Segmenter("them", self._on_partial, self._on_final, vcfg)
+            src = CaptureSource(self.p, "them", self._on_audio, self._on_status)
+            try:
+                src.open(mic)
+                self.sources["them"] = src
+                self.emit({"t": "status", "stage": "mic_only",
+                           "msg": "Listening through the microphone: this Mac cannot share its own sound "
+                                  "with apps. Use the speakers, not headphones, so the mic hears the other person."})
+            except Exception as e:
+                self.emit({"t": "error", "where": "mic", "msg": str(e)})
         else:
             self.emit({"t": "error", "where": "loopback",
                        "msg": "No loopback device for the current output. Meeting audio cannot be heard."})
 
-        if self.cfg.get("listen_me", True) and mic is not None:
+        if self.cfg.get("listen_me", True) and mic is not None and not self.mic_only:
             self.segs["me"] = Segmenter("me", self._on_partial, self._on_final, vcfg)
             src = CaptureSource(self.p, "me", self._on_audio, self._on_status)
             try:
@@ -216,7 +235,8 @@ class Engine:
 
         self.emit({"t": "devices",
                    "out": out["name"] if out else None,
-                   "loopback": lb["name"] if lb else None,
+                   "loopback": (lb["name"] if lb else
+                                ("%s (hears both sides)" % mic["name"]) if self.mic_only and mic else None),
                    "mic": mic["name"] if mic else None,
                    "pinned_output": bool(want_out),
                    "pinned_input": bool(want_in)})
@@ -564,15 +584,16 @@ class Engine:
     def test_mic(self, seconds=4.0, playback=True):
         def run():
             try:
-                if "me" not in self.sources:
+                role = "them" if getattr(self, "mic_only", False) else "me"
+                if role not in self.sources:
                     self.emit({"t": "test_result", "which": "mic", "ok": False,
                                "detail": "Microphone is not being captured. Turn on 'Also transcribe my own voice'."})
                     return
 
-                dev = self.sources["me"].device_name
+                dev = self.sources[role].device_name
                 self.emit({"t": "test_started", "which": "mic", "device": dev, "seconds": seconds})
 
-                self._tap = {"role": "me", "frames": []}
+                self._tap = {"role": role, "frames": []}
                 time.sleep(float(seconds))
                 tap, self._tap = self._tap, None
 

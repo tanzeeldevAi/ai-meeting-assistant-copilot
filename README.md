@@ -6,7 +6,7 @@
 
 [![Tests](https://github.com/tanzeeldevAi/ai-meeting-assistant-copilot/actions/workflows/tests.yml/badge.svg)](https://github.com/tanzeeldevAi/ai-meeting-assistant-copilot/actions/workflows/tests.yml)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](#install-in-one-command)
-[![macOS](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)](#install-in-one-command)
+[![macOS](https://img.shields.io/badge/macOS-11%2B-000000?logo=apple&logoColor=white)](#install-in-one-command)
 [![Claude](https://img.shields.io/badge/Claude-subscription-D97757)](#which-ai-writes-the-answers)
 [![ChatGPT](https://img.shields.io/badge/ChatGPT-subscription-10A37F?logo=openai&logoColor=white)](#which-ai-writes-the-answers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -47,7 +47,7 @@ such as Cluely, built for client calls, sales calls and consultations.
   <tr><td><b>Cost</b></td><td>Free and open source (MIT)</td></tr>
   <tr><td><b>AI</b></td><td>Your Claude or ChatGPT subscription. No API key needed</td></tr>
   <tr><td><b>Call apps</b></td><td>Zoom, Google Meet, Microsoft Teams, Webex, any app that plays sound</td></tr>
-  <tr><td><b>Computers</b></td><td>Windows 10 and 11, macOS 13 or newer</td></tr>
+  <tr><td><b>Computers</b></td><td>Windows 10 and 11, macOS 11 or newer</td></tr>
   <tr><td><b>Speed</b></td><td>About 2 to 5 seconds from their last word to the answer on screen, with Claude</td></tr>
   <tr><td><b>Your data</b></td><td>Briefs, transcripts and notes stay on your computer</td></tr>
 </table>
@@ -164,7 +164,7 @@ line and press Enter:
 irm https://raw.githubusercontent.com/tanzeeldevAi/ai-meeting-assistant-copilot/main/install.ps1 | iex
 ```
 
-**Mac (macOS 13 or newer):** open **Terminal** (press Cmd + Space and type Terminal),
+**Mac (macOS 11 or newer):** open **Terminal** (press Cmd + Space and type Terminal),
 paste this line and press Enter:
 
 ```bash
@@ -232,6 +232,24 @@ macOS asks for two permissions. Allow both for **Electron**:
 
 If macOS offers **Quit & Reopen** after you allow it, quit, then open Meeting Copilot
 again.
+
+### An older Mac (macOS 11 or 12)
+
+It works, with one difference. Before macOS 13, a Mac cannot share its own sound with
+apps, so the app hears the call through the **microphone**:
+
+- Use the Mac's **speakers, not headphones**, so the microphone hears the other person.
+- Your words and theirs come in as one voice, so now and then it may answer a question
+  you asked yourself.
+- Only the Microphone permission is needed.
+
+Want it to hear the call directly, even with headphones? Install the free
+[BlackHole 2ch](https://existential.audio/blackhole/), then in **Audio MIDI Setup**
+create a **Multi-Output Device** with your speakers or headphones and BlackHole ticked,
+and choose it as the sound output. The app picks it up by itself.
+
+On Apple Silicon (M1 and newer) macOS 12 is the minimum; macOS 11 can be updated for
+free in Software Update.
 
 <details>
 <summary><b>Prefer to install by hand?</b></summary>

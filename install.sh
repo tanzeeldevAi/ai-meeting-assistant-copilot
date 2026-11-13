@@ -39,8 +39,15 @@ die()  { printf '\n\033[31m  %s\033[0m\n\n' "$*" >&2; exit 1; }
 
 [ "$(uname -s)" = "Darwin" ] || die "This installer is for macOS. On Windows, see the README for the PowerShell command."
 MACOS=$(sw_vers -productVersion)
-[ "${MACOS%%.*}" -ge 13 ] || die "macOS 13 or newer is needed (this Mac has $MACOS)."
+MAJOR="${MACOS%%.*}"
 case "$(uname -m)" in arm64) ARCH=arm64 ;; x86_64) ARCH=x64 ;; *) die "Unsupported processor: $(uname -m)" ;; esac
+# Electron and Node need macOS 11; the speech packages need 12 on Apple Silicon.
+[ "$MAJOR" -ge 11 ] || die "macOS 11 or newer is needed (this Mac has $MACOS)."
+[ "$ARCH" = x64 ] || [ "$MAJOR" -ge 12 ] \
+  || die "On this Mac, macOS 12 or newer is needed (it has $MACOS). Update it for free in System Preferences > Software Update."
+# Before macOS 13, apps cannot record the Mac's own sound: the app listens
+# through the microphone instead (or BlackHole, if it is installed).
+OLD_MAC=""; [ "$MAJOR" -ge 13 ] || OLD_MAC=1
 
 bold "Meeting Copilot - installing into $DIR"
 mkdir -p "$DIR" "$RT"
@@ -112,9 +119,11 @@ info "done"
 
 # --------------------------------------------------------------- audio helper + model
 bold "[5/6] System audio helper and speech model"
+if [ -n "$OLD_MAC" ]; then
+  info "macOS $MACOS cannot share its own sound with apps; the app will listen through the microphone"
 # xcode-select -p, not `command -v swiftc`: on a Mac without the developer
 # tools, /usr/bin/swiftc is a stub that pops up an install dialog when run.
-if xcode-select -p >/dev/null 2>&1 && xcrun --find swiftc >/dev/null 2>&1; then
+elif xcode-select -p >/dev/null 2>&1 && xcrun --find swiftc >/dev/null 2>&1; then
   swiftc -O -o "$DIR/audio/mac/syscap" "$DIR/audio/mac/syscap.swift"
   info "built from source"
 else
@@ -124,7 +133,7 @@ else
   chmod +x "$DIR/audio/mac/syscap"
   info "downloaded ready-made"
 fi
-"$DIR/audio/mac/syscap" --devices >/dev/null || die "The system audio helper did not run."
+[ -n "$OLD_MAC" ] || "$DIR/audio/mac/syscap" --devices >/dev/null || die "The system audio helper did not run."
 "$DIR/.venv/bin/python3" -c "from faster_whisper import WhisperModel; WhisperModel('tiny.en', compute_type='int8')" \
   >/dev/null 2>&1 || info "the speech model will download the first time you listen"
 "$DIR/.venv/bin/python3" -c "import sounddevice, scipy, faster_whisper, webrtcvad, websockets" \
@@ -181,7 +190,12 @@ EOF
 
 bold "Meeting Copilot is installed."
 info "Open it any time from Launchpad or Spotlight: Meeting Copilot"
-info "The first time, allow Microphone and Screen & System Audio Recording for Electron."
+if [ -n "$OLD_MAC" ]; then
+  info "The first time, allow the Microphone for Electron."
+  info "On macOS $MACOS the app hears the call through the microphone: use the speakers, not headphones."
+else
+  info "The first time, allow Microphone and Screen & System Audio Recording for Electron."
+fi
 info "If no AI is signed in yet, the app shows a Sign in button."
 
 if [ -z "${MC_NO_LAUNCH:-}" ]; then

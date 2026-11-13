@@ -8,7 +8,8 @@ echo
 
 echo "[1/5] Checking Node.js and Python..."
 command -v node >/dev/null || fail "Node.js is missing. Install the LTS version from https://nodejs.org and run this again."
-NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
+NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null)
+[ -n "$NODE_MAJOR" ] || fail "The Node.js on this Mac does not start (it was made for a newer macOS). Use the one-line installer in the README instead: it brings a Node that fits this Mac."
 [ "$NODE_MAJOR" -ge 18 ] || fail "Node.js $NODE_MAJOR is too old. Install the LTS version from https://nodejs.org."
 # A known-good version first, whatever "python3" happens to point at. The
 # newest Python can be ahead of the speech packages: on an Intel Mac, 3.14 has
@@ -36,8 +37,14 @@ echo "[3/5] Python audio packages (into ./.venv)..."
   || fail "pip install failed. If the error mentions conflicting dependencies, your Python is too new for the speech packages: install Python 3.12 from https://python.org, delete the .venv folder, and run this again."
 
 echo "[4/5] Building the system-audio helper..."
-command -v swiftc >/dev/null || fail "Apple's developer tools are missing. Run:  xcode-select --install  then run this again."
-swiftc -O -o audio/mac/syscap audio/mac/syscap.swift || fail "The Swift build failed. Run:  xcode-select --install  then try again."
+if [ "$(sw_vers -productVersion | cut -d. -f1)" -lt 13 ]; then
+  # Before macOS 13 apps cannot record the Mac's own sound; the app listens
+  # through the microphone instead, so there is nothing to build.
+  echo "    skipped: this macOS cannot share its own sound, the app will use the microphone"
+else
+  command -v swiftc >/dev/null || fail "Apple's developer tools are missing. Run:  xcode-select --install  then run this again."
+  swiftc -O -o audio/mac/syscap audio/mac/syscap.swift || fail "The Swift build failed. Run:  xcode-select --install  then try again."
+fi
 
 echo "[5/5] Downloading the speech model (about 75 MB, once)..."
 ./.venv/bin/python3 -c "from faster_whisper import WhisperModel; WhisperModel('tiny.en', compute_type='int8')" \
