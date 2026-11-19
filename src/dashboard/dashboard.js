@@ -307,6 +307,7 @@ async function loadSettings() {
   $('sProvider').value = s.brain.provider || 'claude';
   $('sOpenaiModel').value = s.brain.openaiModel || 'gpt-4o-mini';
   $('sOpenaiKey').value = s.brain.openaiKey || '';
+  if ($('sCursorKey')) $('sCursorKey').value = s.brain.cursorApiKey || '';
   $('sFallback').checked = s.brain.fallbackToOpenAI !== false;
   $('sAuto').checked = s.brain.autoAnswer;
   $('sSuggest').checked = s.brain.suggestions;
@@ -329,6 +330,7 @@ $('saveSettings').onclick = async () => {
       provider: $('sProvider').value,
       openaiModel: $('sOpenaiModel').value,
       openaiKey: $('sOpenaiKey').value.trim(),
+      cursorApiKey: $('sCursorKey') ? $('sCursorKey').value.trim() : '',
       fallbackToOpenAI: $('sFallback').checked,
     },
     audio: {
@@ -538,7 +540,8 @@ api.on('note', () => current && renderNotes(current.notes || []));
 
 // ---------------- AI connection ----------------
 
-const AI_NAMES = { claude: 'Claude', codex: 'ChatGPT', openai: 'OpenAI API' };
+const AI_NAMES = { claude: 'Claude', codex: 'ChatGPT', cursor: 'Cursor', openai: 'OpenAI API' };
+const SIGNIN_PROVIDER = { claude: 'claude', chatgpt: 'codex', cursor: 'cursor' };
 let aiWatch = null;
 
 /** Show the connect card until an AI is signed in, and name the one in use. */
@@ -552,7 +555,20 @@ async function refreshAI() {
   $('signClaude').disabled = !d.claude.installed;
   $('signChatgpt').textContent = d.chatgpt.installed ? 'Sign in with ChatGPT' : 'ChatGPT not installed';
   $('signChatgpt').disabled = !d.chatgpt.installed;
+  if ($('signCursor')) {
+    const cursorOk = !!(d.cursor && d.cursor.installed);
+    $('signCursor').textContent = cursorOk ? 'Sign in with Cursor' : 'Cursor CLI not installed';
+    $('signCursor').disabled = !cursorOk;
+  }
   return d;
+}
+
+function signedInFor(which, d) {
+  if (!d) return false;
+  if (which === 'claude') return !!d.claude.signedIn;
+  if (which === 'chatgpt') return !!d.chatgpt.signedIn;
+  if (which === 'cursor') return !!(d.cursor && d.cursor.signedIn);
+  return false;
 }
 
 async function startSignIn(which) {
@@ -564,10 +580,10 @@ async function startSignIn(which) {
   const started = Date.now();
   aiWatch = setInterval(async () => {
     const d = await refreshAI();
-    const done = d && (which === 'claude' ? d.claude.signedIn : d.chatgpt.signedIn);
+    const done = signedInFor(which, d);
     if (done) {
       clearInterval(aiWatch);
-      await api.aiUse(which === 'claude' ? 'claude' : 'codex');
+      await api.aiUse(SIGNIN_PROVIDER[which] || which);
       $('connect').classList.remove('waiting');
       await refreshAI();
       await loadSettings();
@@ -581,6 +597,7 @@ async function startSignIn(which) {
 
 $('signClaude').onclick = () => startSignIn('claude');
 $('signChatgpt').onclick = () => startSignIn('chatgpt');
+if ($('signCursor')) $('signCursor').onclick = () => startSignIn('cursor');
 
 // ---------------- boot ----------------
 

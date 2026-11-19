@@ -51,6 +51,7 @@
     <div class="connect-actions">
       <button id="signClaude" class="primary">Sign in with Claude</button>
       <button id="signChatgpt">Sign in with ChatGPT</button>
+      <button id="signCursor">Sign in with Cursor</button>
     </div>
   </div>
 
@@ -191,19 +192,25 @@
       <label>Cloud speech API key<input id="sKey" type="password" placeholder="only for the cloud speech backend" /></label>
       <label>Anthropic API key <small>(only if the Claude CLI cannot sign in - bills per token)</small><input id="sAnthropicKey" type="password" placeholder="leave empty to use your Claude subscription" /></label>
       <label>Main brain
-        <select id="sProvider"><option value="claude">Claude (your Claude Pro or Max subscription)</option><option value="codex">ChatGPT (your ChatGPT subscription, through the Codex CLI)</option><option value="openai">OpenAI API (API key, pay per use)</option></select>
+        <select id="sProvider">
+          <option value="claude">Claude (your Claude Pro or Max subscription)</option>
+          <option value="codex">ChatGPT (your ChatGPT subscription, through the Codex CLI)</option>
+          <option value="cursor">Cursor (your Cursor subscription, through the Agent CLI)</option>
+          <option value="openai">OpenAI API (API key, pay per use)</option>
+        </select>
       </label>
       <label>OpenAI model
         <select id="sOpenaiModel"><option value="gpt-4o-mini">gpt-4o-mini (fastest, cheapest)</option><option value="gpt-4o">gpt-4o (better)</option><option value="gpt-4.1-mini">gpt-4.1-mini</option><option value="gpt-4.1">gpt-4.1</option></select>
       </label>
       <label>OpenAI API key <small>(from platform.openai.com - only for "OpenAI API"; ChatGPT needs no key)</small><input id="sOpenaiKey" type="password" placeholder="sk-..." /></label>
+      <label>Cursor API key <small>(optional - from cursor.com dashboard; otherwise use Sign in with Cursor)</small><input id="sCursorKey" type="password" placeholder="optional" /></label>
     </div>
     <label class="check"><input type="checkbox" id="sAuto" /> Answer automatically when they speak</label>
     <label class="check"><input type="checkbox" id="sSuggest" /> Suggest questions I could ask</label>
     <label class="check"><input type="checkbox" id="sPartials" /> Show live partial text while they speak <small>(costs CPU - leave off on older laptops)</small></label>
     <label class="check"><input type="checkbox" id="sMe" /> Also transcribe my own voice (for context and notes)</label>
     <label class="check"><input type="checkbox" id="sEcho" /> Drop my mic picking up their voice from my speakers</label>
-    <label class="check"><input type="checkbox" id="sFallback" /> If Claude fails mid-meeting, keep answering with a backup <small>(the OpenAI key above, or ChatGPT if the Codex CLI is signed in)</small></label>
+    <label class="check"><input type="checkbox" id="sFallback" /> If Claude fails mid-meeting, keep answering with a backup <small>(OpenAI key, else ChatGPT, else Cursor)</small></label>
     <label class="check"><input type="checkbox" id="sMock" /> Offline demo mode (canned answers, no AI)</label>
 
     <div class="row"><button id="saveSettings" class="primary">Save settings</button><span id="setMsg" class="ok hidden">saved</span></div>

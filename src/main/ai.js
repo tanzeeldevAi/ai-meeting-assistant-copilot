@@ -2,11 +2,12 @@
 /**
  * Which AI can write the answers on this computer, and signing in to it.
  *
- * Two subscriptions can drive the app, each through its own command-line tool:
+ * Three subscriptions can drive the app, each through its own command-line tool:
  *   Claude   the Claude Code CLI      claude auth status --json / claude auth login
  *   ChatGPT  the Codex CLI            codex login status        / codex login
+ *   Cursor   the Cursor Agent CLI     agent status              / agent login
  *
- * The app checks both, uses whichever is signed in, and when neither is it
+ * The app checks them, uses whichever is signed in, and when none is it
  * offers a button that starts the tool's own sign-in. That sign-in opens the
  * browser and finishes there, so nobody has to type anything into a terminal.
  */
@@ -16,6 +17,7 @@ const os = require('os');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 const { findCodex, codexEnv } = require('./codex');
+const { findAgent, cursorStatus, cursorEnv } = require('./cursor');
 
 const IS_WIN = process.platform === 'win32';
 
@@ -90,19 +92,27 @@ function chatgptStatus(codexPath) {
 function detect(settings = {}) {
   const claude = claudeStatus(settings.claudePath);
   const chatgpt = chatgptStatus(settings.codexPath);
+  const cursor = cursorStatus(settings.cursorPath, settings);
   const chosen = (settings.provider || 'claude').toLowerCase();
   let use = chosen;
-  // Follow the sign-in: if the chosen one is not signed in but the other is,
+  // Follow the sign-in: if the chosen one is not signed in but another is,
   // use the other. An API key choice ('openai') is the user's explicit call
   // and is left alone.
   if (chosen === 'claude' && claude.signedIn === false && chatgpt.signedIn) use = 'codex';
+  if (chosen === 'claude' && claude.signedIn === false && !chatgpt.signedIn && cursor.signedIn) use = 'cursor';
   // Only ChatGPT's tool is on this computer (installed with MC_AI=chatgpt):
   // that is the one to offer, even before it is signed in.
   if (chosen === 'claude' && !claude.installed && chatgpt.installed) use = 'codex';
+  if (chosen === 'claude' && !claude.installed && !chatgpt.installed && cursor.installed) use = 'cursor';
   if (chosen === 'codex' && !chatgpt.signedIn && claude.signedIn) use = 'claude';
+  if (chosen === 'codex' && !chatgpt.signedIn && !claude.signedIn && cursor.signedIn) use = 'cursor';
+  if (chosen === 'cursor' && !cursor.signedIn && claude.signedIn) use = 'claude';
+  if (chosen === 'cursor' && !cursor.signedIn && !claude.signedIn && chatgpt.signedIn) use = 'codex';
   const ready = chosen === 'openai' ? !!settings.openaiKey
-    : use === 'codex' ? !!chatgpt.signedIn : claude.signedIn !== false;
-  return { claude, chatgpt, use, ready };
+    : use === 'codex' ? !!chatgpt.signedIn
+    : use === 'cursor' ? !!cursor.signedIn
+    : claude.signedIn !== false;
+  return { claude, chatgpt, cursor, use, ready };
 }
 
 /**
@@ -110,17 +120,37 @@ function detect(settings = {}) {
  * so this only launches it; the dashboard watches detect() for the result.
  */
 function signIn(which, settings = {}) {
-  const exe = which === 'chatgpt' ? findCodex(settings.codexPath) : findClaude(settings.claudePath);
-  if (!exe) {
-    return { ok: false, error: which === 'chatgpt'
-      ? 'ChatGPT needs the Codex CLI. Run the install line again with ChatGPT chosen (see the README).'
-      : 'Claude needs the Claude CLI. Run the installer again, or see claude.com/claude-code' };
+  let exe = null;
+  let args = null;
+  let env = null;
+
+  if (which === 'chatgpt') {
+    exe = findCodex(settings.codexPath);
+    args = ['login'];
+    env = cliEnv(exe);
+    if (!exe) {
+      return { ok: false, error: 'ChatGPT needs the Codex CLI. Run the install line again with ChatGPT chosen (see the README).' };
+    }
+  } else if (which === 'cursor') {
+    exe = findAgent(settings.cursorPath);
+    args = ['login'];
+    env = cursorEnv(exe, settings);
+    if (!exe) {
+      return { ok: false, error: 'Cursor needs the Cursor CLI (`agent`). Install it from https://cursor.com/docs/cli/overview then restart Meeting Copilot.' };
+    }
+  } else {
+    exe = findClaude(settings.claudePath);
+    args = ['auth', 'login', '--claudeai'];
+    env = cliEnv(exe);
+    if (!exe) {
+      return { ok: false, error: 'Claude needs the Claude CLI. Run the installer again, or see claude.com/claude-code' };
+    }
   }
-  const args = which === 'chatgpt' ? ['login'] : ['auth', 'login', '--claudeai'];
+
   const shell = IS_WIN && /\.(cmd|bat)$/i.test(exe);
   try {
     const child = spawn(shell ? `"${exe}"` : exe, args,
-      { detached: true, stdio: 'ignore', windowsHide: true, shell, env: cliEnv(exe) });
+      { detached: true, stdio: 'ignore', windowsHide: true, shell, env });
     child.unref();
     return { ok: true };
   } catch (e) {

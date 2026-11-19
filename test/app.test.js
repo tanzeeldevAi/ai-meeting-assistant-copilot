@@ -15,6 +15,7 @@ const path = require('path');
 const { Brain, needsAnswer, buildSystem, parseJSON } = require('../src/main/brain');
 const { TurnBuffer } = require('../src/main/turnbuffer');
 const { CodexEngine, explain } = require('../src/main/codex');
+const { CursorEngine } = require('../src/main/cursor');
 const { OpenAIEngine } = require('../src/main/openai');
 
 // ------------------------------------------------------------ a fake codex
@@ -48,6 +49,11 @@ function fakeCodex() {
   fs.writeFileSync(p, `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`);
   fs.chmodSync(p, 0o755);
   return p;
+}
+
+/** A Cursor `agent` binary that is really test/fixtures/fake-agent.js. */
+function fakeAgent() {
+  return fakeCli('agent', 'fake-agent.js');
 }
 
 /** Collect a brain's events until `done` or `error` for request `id`. */
@@ -225,6 +231,26 @@ test('brain: summary and typed questions work on ChatGPT too', async () => {
   await b.stop();
 });
 
+test('brain: Cursor as the main brain answers a question', async () => {
+  const b = new Brain();
+  const ok = await b.start({ company: 'Acme' }, { provider: 'cursor', cursorPath: fakeAgent() });
+  assert.equal(ok, true);
+  const id = b.answer('How long would a project like this take you?', [{ role: 'them', text: 'Hi' }]);
+  const r = await settle(b, id);
+  assert.equal(r.kind, 'done', JSON.stringify(r.event));
+  assert.match(r.event.text, /heard \d+ characters/);
+  assert.ok(Number(r.event.text.match(/\d+/)[0]) > 500);
+  await b.stop();
+});
+
+test('brain: typed questions work on Cursor too', async () => {
+  const b = new Brain();
+  await b.start({}, { provider: 'cursor', cursorPath: fakeAgent() });
+  const id = b.ask('What should I say about pricing?', []);
+  assert.equal((await settle(b, id)).kind, 'done');
+  await b.stop();
+});
+
 test('brain: if Claude fails mid-meeting the backup answers instead (used to do nothing)', async () => {
   const b = new Brain();
   b.settings = { fallbackToOpenAI: true };
@@ -306,10 +332,38 @@ test('ai: nothing signed in means not ready, so the app shows Sign in', () => {
   const ai = require('../src/main/ai');
   process.env.FAKE_CLAUDE_STATE = 'out';
   process.env.FAKE_CODEX_STATE = 'out';
+  process.env.FAKE_AGENT_STATE = 'out';
   try {
-    const d = ai.detect({ provider: 'claude', claudePath: fakeCli('claude', 'fake-claude.js'), codexPath: fakeCodex() });
+    const d = ai.detect({
+      provider: 'claude',
+      claudePath: fakeCli('claude', 'fake-claude.js'),
+      codexPath: fakeCodex(),
+      cursorPath: fakeAgent(),
+    });
     assert.equal(d.chatgpt.signedIn, false);
+    assert.equal(d.cursor.signedIn, false);
     assert.equal(d.ready, false);
+  } finally {
+    delete process.env.FAKE_CODEX_STATE;
+    delete process.env.FAKE_AGENT_STATE;
+  }
+});
+
+test('ai: uses Cursor when Claude and ChatGPT are out but Cursor is signed in', () => {
+  const ai = require('../src/main/ai');
+  process.env.FAKE_CLAUDE_STATE = 'out';
+  process.env.FAKE_CODEX_STATE = 'out';
+  delete process.env.FAKE_AGENT_STATE;
+  try {
+    const d = ai.detect({
+      provider: 'claude',
+      claudePath: fakeCli('claude', 'fake-claude.js'),
+      codexPath: fakeCodex(),
+      cursorPath: fakeAgent(),
+    });
+    assert.equal(d.cursor.signedIn, true);
+    assert.equal(d.use, 'cursor');
+    assert.equal(d.ready, true);
   } finally {
     delete process.env.FAKE_CODEX_STATE;
   }
@@ -346,4 +400,25 @@ test("codex: the installer's own Node and Codex come first on the CLI's PATH", (
   assert.equal(parts[0], path.dirname(exe));
   const node = process.platform === 'win32' ? path.join(rt, 'node') : path.join(rt, 'node', 'bin');
   assert.ok(parts.indexOf(node) > 0 && parts.indexOf(node) < 4, 'own Node is near the front');
+});
+
+test('ai: the Sign in with Cursor button starts agent login', async () => {
+  const ai = require('../src/main/ai');
+  const mark = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mc-mark-')), 'called');
+  process.env.FAKE_AGENT_MARK = mark;
+  const r = ai.signIn('cursor', { cursorPath: fakeAgent() });
+  assert.equal(r.ok, true);
+  for (let i = 0; i < 50 && !fs.existsSync(mark); i++) await new Promise((x) => setTimeout(x, 100));
+  assert.equal(fs.readFileSync(mark, 'utf8'), 'login');
+  delete process.env.FAKE_AGENT_MARK;
+});
+
+test('cursor: long prompts are sent via a workspace file instead of argv', async () => {
+  const { CursorEngine, ARGV_PROMPT_LIMIT } = require('../src/main/cursor');
+  const engine = new CursorEngine({ cursorPath: fakeAgent() });
+  engine.setSystem('SYSTEM');
+  const huge = 'x'.repeat(ARGV_PROMPT_LIMIT + 100);
+  const text = await engine.send(huge);
+  assert.match(text, /heard \d+ characters/);
+  assert.ok(Number(text.match(/\d+/)[0]) > ARGV_PROMPT_LIMIT);
 });

@@ -21,6 +21,7 @@
 const { EventEmitter } = require('events');
 const { OpenAIEngine } = require('./openai');
 const { CodexEngine } = require('./codex');
+const { CursorEngine } = require('./cursor');
 
 /**
  * Environment for the spawned Claude CLI.
@@ -300,7 +301,7 @@ async function askOnce(system, user, settings = {}) {
     // One-shot: if another brain is chosen, use it here too so prep and
     // summaries do not silently fall back to a Claude session that may not exist.
     const provider = (settings.provider || 'claude').toLowerCase();
-    if (provider === 'openai' || provider === 'codex') {
+    if (provider === 'openai' || provider === 'codex' || provider === 'cursor') {
       const engine = makeStateless(provider, settings);
       if (!engine.configured) return { ok: false, error: notConfigured(provider) };
       engine.setSystem(system);
@@ -435,13 +436,45 @@ async function summariseTranscript(transcript, brief, settings = {}) {
 
 /** The brains that keep no session: every request carries its own context. */
 function makeStateless(provider, settings) {
-  return provider === 'codex' ? new CodexEngine(settings, () => {}) : new OpenAIEngine(settings, () => {});
+  if (provider === 'codex') return new CodexEngine(settings, () => {});
+  if (provider === 'cursor') return new CursorEngine(settings, () => {});
+  return new OpenAIEngine(settings, () => {});
 }
 
 function notConfigured(provider) {
-  return provider === 'codex'
-    ? 'ChatGPT is selected but the Codex CLI is not installed. Run the install line again with ChatGPT chosen (see the README).'
-    : 'OpenAI is selected but no API key is set (Dashboard - Settings).';
+  if (provider === 'codex') {
+    return 'ChatGPT is selected but the Codex CLI is not installed. Run the install line again with ChatGPT chosen (see the README).';
+  }
+  if (provider === 'cursor') {
+    return 'Cursor is selected but the Cursor CLI (`agent`) is not installed. See https://cursor.com/docs/cli/overview';
+  }
+  return 'OpenAI is selected but no API key is set (Dashboard - Settings).';
+}
+
+/** Prefer OpenAI key, then ChatGPT, then Cursor, as a mid-meeting Claude backup. */
+function pickBackup(settings, system) {
+  const openai = new OpenAIEngine(settings, () => {});
+  if (openai.configured) {
+    openai.setSystem(system);
+    return openai;
+  }
+  const codex = new CodexEngine(settings, () => {});
+  if (codex.configured) {
+    codex.setSystem(system);
+    return codex;
+  }
+  const cursor = new CursorEngine(settings, () => {});
+  if (cursor.configured) {
+    cursor.setSystem(system);
+    return cursor;
+  }
+  return null;
+}
+
+function backupName(engine) {
+  if (engine instanceof CodexEngine) return 'codex';
+  if (engine instanceof CursorEngine) return 'cursor';
+  return 'openai';
 }
 
 class Brain extends EventEmitter {
@@ -496,18 +529,14 @@ class Brain extends EventEmitter {
     const system = buildSystem(brief, this.settings);
 
     // The backup brain: what answers if Claude fails mid-meeting, so a rate
-    // limit or a lapsed login does not leave the overlay silent. An OpenAI API
-    // key if there is one, otherwise ChatGPT through the Codex CLI if it is
-    // installed.
+    // limit or a lapsed login does not leave the overlay silent. OpenAI API
+    // key first, then ChatGPT (Codex), then Cursor.
     this.backup = null;
     if (this.provider === 'claude' && this.settings.fallbackToOpenAI !== false) {
-      const openai = new OpenAIEngine(this.settings, () => {});
-      const codex = openai.configured ? null : new CodexEngine(this.settings, () => {});
-      this.backup = openai.configured ? openai : (codex && codex.configured ? codex : null);
-      if (this.backup) this.backup.setSystem(system);
+      this.backup = pickBackup(this.settings, system);
     }
 
-    if (this.provider === 'openai' || this.provider === 'codex') {
+    if (this.provider === 'openai' || this.provider === 'codex' || this.provider === 'cursor') {
       this.engine = makeStateless(this.provider, this.settings);
       if (!this.engine.configured) {
         this.ready = false;
@@ -638,7 +667,7 @@ class Brain extends EventEmitter {
               && this.backup && p.userText;
 
             if (canFallback) {
-              this.emit('status', { fallback: this.backup instanceof CodexEngine ? 'codex' : 'openai', reason: msg });
+              this.emit('status', { fallback: backupName(this.backup), reason: msg });
               this._sendStateless(this.backup, p, p.userText);
             } else if (p && p.kind !== 'prewarm') {
               this.emit('error', { id: p.id, kind: p.kind, message: msg });
